@@ -573,7 +573,7 @@ export default function AACBoard() {
       {(view === "board" || view === "myboards") && (
         <div style={css.header}>
           <div style={css.topBar}>
-            <span style={css.appTitle}>⚔️ Lord Darren the Staff Wielder of Magical Apps</span>
+            <span style={css.appTitle}>⚔️ Lord Darren and The Stick of Unsolicited Advice</span>
             <div style={{ display:"flex", gap:6, alignItems:"center" }}>
               {activeBoard && (
                 <>
