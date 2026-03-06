@@ -283,8 +283,7 @@ const EMOJI_SYMBOLS = {
     { id: 922, label: "Pet",          emoji: "🐶", color: "#F472B6" },
   ],
 
-  // ── Needs & Requests ────────────────────────────────────────────────────────
-  needs: [
+  // ── Needs & Requests ────────────────────────────────────────────────────────  needs: [
     { id: 1001, label: "I Want",       emoji: "🫳", color: "#C4B5FD" },
     { id: 1002, label: "I Need",       emoji: "❗", color: "#C4B5FD" },
     { id: 1003, label: "I Like",       emoji: "❤️",color: "#C4B5FD" },
@@ -310,6 +309,58 @@ const EMOJI_SYMBOLS = {
     { id: 1023, label: "Leave Me",     emoji: "✋", color: "#C4B5FD" },
     { id: 1024, label: "Change It",    emoji: "🔄", color: "#C4B5FD" },
   ],
+
+  // ── Dungeons & Dragons ──────────────────────────────────────────────────────
+  dnd: [
+    { id: 1101, label: "Dragon",        emoji: "🐉", color: "#DC2626" },
+    { id: 1102, label: "Wizard",        emoji: "🧙", color: "#DC2626" },
+    { id: 1103, label: "Warrior",       emoji: "🗡️", color: "#DC2626" },
+    { id: 1104, label: "Elf",           emoji: "🧝", color: "#DC2626" },
+    { id: 1105, label: "Dwarf",         emoji: "⛏️", color: "#DC2626" },
+    { id: 1106, label: "Orc",           emoji: "👹", color: "#DC2626" },
+    { id: 1107, label: "Goblin",        emoji: "👺", color: "#DC2626" },
+    { id: 1108, label: "Skeleton",      emoji: "💀", color: "#DC2626" },
+    { id: 1109, label: "Ghost",         emoji: "👻", color: "#DC2626" },
+    { id: 1110, label: "Vampire",       emoji: "🧛", color: "#DC2626" },
+    { id: 1111, label: "Werewolf",      emoji: "🐺", color: "#DC2626" },
+    { id: 1112, label: "Troll",         emoji: "🧌", color: "#DC2626" },
+    { id: 1113, label: "Unicorn",       emoji: "🦄", color: "#DC2626" },
+    { id: 1114, label: "Phoenix",       emoji: "🦅", color: "#DC2626" },
+    { id: 1115, label: "Sword",         emoji: "⚔️", color: "#DC2626" },
+    { id: 1116, label: "Staff",         emoji: "🪄", color: "#DC2626" },
+    { id: 1117, label: "Bow & Arrow",   emoji: "🏹", color: "#DC2626" },
+    { id: 1118, label: "Shield",        emoji: "🛡️", color: "#DC2626" },
+    { id: 1119, label: "Dagger",        emoji: "🔪", color: "#DC2626" },
+    { id: 1120, label: "Axe",           emoji: "🪓", color: "#DC2626" },
+    { id: 1121, label: "Magic Spell",   emoji: "✨", color: "#DC2626" },
+    { id: 1122, label: "Fireball",      emoji: "🔥", color: "#DC2626" },
+    { id: 1123, label: "Ice Spell",     emoji: "❄️", color: "#DC2626" },
+    { id: 1124, label: "Lightning",     emoji: "⚡", color: "#DC2626" },
+    { id: 1125, label: "Poison",        emoji: "☠️", color: "#DC2626" },
+    { id: 1126, label: "Healing",       emoji: "💚", color: "#DC2626" },
+    { id: 1127, label: "Potion",        emoji: "🧪", color: "#DC2626" },
+    { id: 1128, label: "Treasure",      emoji: "💰", color: "#DC2626" },
+    { id: 1129, label: "Chest",         emoji: "📦", color: "#DC2626" },
+    { id: 1130, label: "Map",           emoji: "🗺️", color: "#DC2626" },
+    { id: 1131, label: "Dungeon",       emoji: "🏰", color: "#DC2626" },
+    { id: 1132, label: "Castle",        emoji: "🏯", color: "#DC2626" },
+    { id: 1133, label: "Cave",          emoji: "🕳️", color: "#DC2626" },
+    { id: 1134, label: "Forest",        emoji: "🌲", color: "#DC2626" },
+    { id: 1135, label: "Tavern",        emoji: "🍺", color: "#DC2626" },
+    { id: 1136, label: "Roll Dice",     emoji: "🎲", color: "#DC2626" },
+    { id: 1137, label: "Nat 20!",       emoji: "🎯", color: "#DC2626" },
+    { id: 1138, label: "Critical Fail", emoji: "💥", color: "#DC2626" },
+    { id: 1139, label: "Level Up",      emoji: "⬆️", color: "#DC2626" },
+    { id: 1140, label: "Experience",    emoji: "⭐", color: "#DC2626" },
+    { id: 1141, label: "Quest",         emoji: "📜", color: "#DC2626" },
+    { id: 1142, label: "Campfire",      emoji: "🔥", color: "#DC2626" },
+    { id: 1143, label: "Torch",         emoji: "🔦", color: "#DC2626" },
+    { id: 1144, label: "Spider",        emoji: "🕷️", color: "#DC2626" },
+    { id: 1145, label: "Bat",           emoji: "🦇", color: "#DC2626" },
+    { id: 1146, label: "Snake",         emoji: "🐍", color: "#DC2626" },
+    { id: 1147, label: "Spell Book",    emoji: "📖", color: "#DC2626" },
+    { id: 1148, label: "Rogue",         emoji: "🥷", color: "#DC2626" },
+  ],
 };
 
 const CATEGORIES = [
@@ -324,6 +375,7 @@ const CATEGORIES = [
   { id: "places",    label: "Places",      emoji: "🏠", color: "#34D399" },
   { id: "people",    label: "People",      emoji: "👩", color: "#F472B6" },
   { id: "needs",     label: "Needs",       emoji: "❗", color: "#C4B5FD" },
+  { id: "dnd",       label: "D&D",         emoji: "🐉", color: "#DC2626" },
 ];
 
 const VOICES = [
@@ -520,7 +572,7 @@ export default function AACBoard() {
       {(view === "board" || view === "myboards") && (
         <div style={css.header}>
           <div style={css.topBar}>
-            <span style={css.appTitle}>✨ VoiceBoard Pro</span>
+            <span style={css.appTitle}>⚔️ Lord Darren the Staff Wielder of Magical Apps</span>
             <div style={{ display:"flex", gap:6, alignItems:"center" }}>
               {activeBoard && (
                 <>
