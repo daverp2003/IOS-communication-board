@@ -283,7 +283,8 @@ const EMOJI_SYMBOLS = {
     { id: 922, label: "Pet",          emoji: "🐶", color: "#F472B6" },
   ],
 
-  // ── Needs & Requests ────────────────────────────────────────────────────────  needs: [
+  // ── Needs & Requests ────────────────────────────────────────────────────────  
+needs: [
     { id: 1001, label: "I Want",       emoji: "🫳", color: "#C4B5FD" },
     { id: 1002, label: "I Need",       emoji: "❗", color: "#C4B5FD" },
     { id: 1003, label: "I Like",       emoji: "❤️",color: "#C4B5FD" },
