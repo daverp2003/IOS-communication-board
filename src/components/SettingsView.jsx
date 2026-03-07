@@ -1,7 +1,6 @@
 import { useState } from "react";
-import { VOICES } from "../constants/config";
 
-export default function SettingsView({ tileSize, setTileSize, selectedVoice, setSelectedVoice, theme, setTheme, T, pin, sync, boards, settings }) {
+export default function SettingsView({ tileSize, setTileSize, theme, setTheme, T, pin, sync, boards, settings, speech }) {
   const [tab, setTab] = useState("display");
 
   const tabStyle = (id) => ({
@@ -49,19 +48,7 @@ export default function SettingsView({ tileSize, setTileSize, selectedVoice, set
         </>
       )}
 
-      {tab === "voice" && VOICES.map((v) => (
-        <div key={v.id} onClick={() => setSelectedVoice(v)} style={{ display: "flex", alignItems: "center", padding: "10px 14px", borderRadius: 12, border: `2px solid ${selectedVoice.id === v.id ? "#6366F1" : T.border}`, background: selectedVoice.id === v.id ? "#EEF2FF" : T.bg, cursor: "pointer", marginBottom: 8, gap: 12 }}>
-          <div style={{ width: 38, height: 38, borderRadius: "50%", background: selectedVoice.id === v.id ? "linear-gradient(135deg,#6366F1,#8B5CF6)" : T.border, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>🔊</div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 800, fontSize: 14 }}>{v.label}</div>
-            <div style={{ fontSize: 12, color: T.subtext }}>{v.description}</div>
-          </div>
-          <button style={{ background: "linear-gradient(135deg,#6366F1,#8B5CF6)", color: "#fff", border: "none", borderRadius: 8, padding: "5px 11px", fontWeight: 700, fontSize: 12, cursor: "pointer" }}
-            onClick={(e) => { e.stopPropagation(); const u = new SpeechSynthesisUtterance(`Hi, I'm ${v.label}`); u.pitch = v.pitch; u.rate = v.rate; window.speechSynthesis?.speak(u); }}>
-            ▶ Test
-          </button>
-        </div>
-      ))}
+      {tab === "voice" && <VoiceSettings T={T} speech={speech} />}
 
       {tab === "theme" && (
         <div style={{ display: "flex", gap: 8 }}>
@@ -210,6 +197,69 @@ function SyncSettings({ T, sync, boards, settings }) {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+
+// ─────────────────────────────────────────────────────────────
+//  VoiceSettings — shows real device voices
+// ─────────────────────────────────────────────────────────────
+function VoiceSettings({ T, speech }) {
+  const { voices, voiceReady, setVoiceByName, selectedVoiceRef, speak } = speech;
+  const [selected, setSelected] = useState(selectedVoiceRef.current?.name || "");
+  const [testing,  setTesting]  = useState(null);
+
+  const handleSelect = (name) => {
+    setSelected(name);
+    setVoiceByName(name);
+  };
+
+  const handleTest = (e, v) => {
+    e.stopPropagation();
+    setTesting(v.name);
+    speak(`Hello, my name is ${v.name.split(" ")[0]}. I can help you communicate.`, { pitch: 1, rate: 0.95 });
+    setTimeout(() => setTesting(null), 3000);
+  };
+
+  if (!voiceReady) return (
+    <div style={{ textAlign: "center", padding: 32, color: T.subtext }}>
+      <div style={{ fontSize: 28, marginBottom: 8 }}>🔊</div>
+      <div style={{ fontWeight: 700 }}>Loading voices…</div>
+    </div>
+  );
+
+  if (!voices.length) return (
+    <div style={{ padding: 16, background: `${T.border}44`, borderRadius: 12, color: T.subtext, fontSize: 13, lineHeight: 1.6 }}>
+      ⚠️ No voices found on this device. Make sure your device has text-to-speech voices installed in your system settings.
+    </div>
+  );
+
+  return (
+    <div>
+      <div style={{ fontSize: 12, color: T.subtext, marginBottom: 12, background: `${T.border}44`, borderRadius: 10, padding: "8px 12px", lineHeight: 1.5 }}>
+        🎙️ These are the real voices installed on your device. Tap a voice to select it, then tap ▶ Test to hear it.
+      </div>
+      {voices.map((v) => {
+        const active = selected === v.name || (!selected && selectedVoiceRef.current?.name === v.name);
+        return (
+          <div key={v.name} onClick={() => handleSelect(v.name)}
+            style={{ display: "flex", alignItems: "center", padding: "10px 14px", borderRadius: 12, border: `2px solid ${active ? "#6366F1" : T.border}`, background: active ? "#EEF2FF" : T.bg, cursor: "pointer", marginBottom: 8, gap: 12, touchAction: "manipulation" }}>
+            <div style={{ width: 38, height: 38, borderRadius: "50%", background: active ? "linear-gradient(135deg,#6366F1,#8B5CF6)" : T.border, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>
+              {active ? "✓" : "🔊"}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 800, fontSize: 14, color: active ? "#6366F1" : T.text }}>{v.name}</div>
+              <div style={{ fontSize: 11, color: T.subtext }}>{v.lang}{v.localService ? " · On-device" : " · Network"}</div>
+            </div>
+            <button
+              onClick={(e) => handleTest(e, v)}
+              style={{ background: testing === v.name ? "#10B981" : "linear-gradient(135deg,#6366F1,#8B5CF6)", color: "#fff", border: "none", borderRadius: 8, padding: "5px 11px", fontWeight: 700, fontSize: 12, cursor: "pointer", flexShrink: 0, touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}>
+              {testing === v.name ? "…" : "▶ Test"}
+            </button>
+          </div>
+        );
+      })}
     </div>
   );
 }

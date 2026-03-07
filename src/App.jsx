@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { EMOJI_SYMBOLS, getAllSymbols } from "./constants/symbols";
-import { CATEGORIES, VOICES, THEMES } from "./constants/config";
+import { CATEGORIES, THEMES } from "./constants/config";
 import { useSpeech }      from "./hooks/useSpeech";
 import { useBoards }      from "./hooks/useBoards";
 import { usePIN }         from "./hooks/usePIN";
@@ -27,7 +27,6 @@ export default function App() {
   const [activeCategory, setActiveCategory] = useState("greetings");
   const [message, setMessage]               = useState([]);
   const [searchQuery, setSearchQuery]       = useState("");
-  const [selectedVoice, setSelectedVoice]   = useState(VOICES[0]);
   const [theme, setTheme]                   = useState("light");
   const [tileSize, setTileSize]             = useState(108);
   const [editingBoard, setEditingBoard]     = useState(null);
@@ -58,12 +57,12 @@ export default function App() {
 
   const handleTilePress = (symbol) => {
     setMessage((prev) => [...prev, symbol]);
-    speak(symbol.label, selectedVoice);
+    speak(symbol.label);
   };
 
   const handleSpeak = () => {
     if (speaking) { stop(); return; }
-    if (message.length) speak(message.map((s) => s.label).join(" "), selectedVoice);
+    if (message.length) speak(message.map((s) => s.label).join(" "));
   };
 
   const navigateTo = (targetView, builderBoard = null) => {
@@ -204,13 +203,13 @@ export default function App() {
         {view === "settings" && (
           <SettingsView
             tileSize={tileSize} setTileSize={setTileSize}
-            selectedVoice={selectedVoice} setSelectedVoice={setSelectedVoice}
             theme={theme} setTheme={setTheme}
             T={T}
+            speech={speech}
             pin={pin}
             sync={sync}
             boards={boards}
-            settings={{ tileSize, selectedVoice, theme }}
+            settings={{ tileSize, theme }}
           />
         )}
       </div>
