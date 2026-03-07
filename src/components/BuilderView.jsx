@@ -116,13 +116,7 @@ function useTouchDrag({ onDrop, onDragOver, onDragEnd }) {
     document.addEventListener("touchcancel", onEnd,   { passive: true });
   }, [onDrop, onDragOver, onDragEnd]);
 
-  /** Desktop HTML5 drag — no overlay (overlay blocks dragover/drop on cells) */
-  const startDesktopDrag = useCallback((sym, fromCell) => {
-    removeAllGhosts();
-    removeScrollBlocker();
-    dragging.current    = { sym, fromCell };
-    overCellRef.current = null;
-  }, []);
+
 
   const endDrag = useCallback(() => {
     removeAllGhosts();
@@ -137,21 +131,10 @@ function useTouchDrag({ onDrop, onDragOver, onDragEnd }) {
   }, [onDrop, onDragEnd]);
 
   /** Called by desktop HTML5 drop — fires the drop at a known cell index */
-  const dropAt = useCallback((idx) => {
-    if (!dragging.current) return;
-    removeAllGhosts();
-    removeScrollBlocker();
-    ghostRef.current = null;
-    onDrop(dragging.current.sym, dragging.current.fromCell, idx);
-    dragging.current    = null;
-    overCellRef.current = null;
-    onDragEnd();
-  }, [onDrop, onDragEnd]);
-
   // Safety cleanup on unmount
   useEffect(() => () => { removeAllGhosts(); removeScrollBlocker(); }, []);
 
-  return { startTouchDrag, startDesktopDrag, endDrag, dropAt, isDragging };
+  return { startTouchDrag, endDrag, isDragging };
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -193,7 +176,7 @@ export default function BuilderView({ T, theme, initialBoard, onSave, onBack, pr
     });
   }, []);
 
-  const { startTouchDrag, startDesktopDrag, endDrag, dropAt, isDragging } = useTouchDrag({
+  const { startTouchDrag, endDrag, isDragging } = useTouchDrag({
     onDrop:     handleDrop,
     onDragOver: (idx) => setDragOverCell(idx),
     onDragEnd:  () => setDragOverCell(null),
