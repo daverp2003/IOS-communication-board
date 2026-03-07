@@ -1,18 +1,38 @@
 import { useState, useCallback, useEffect } from "react";
 import { idbGetIcons, idbSaveIcon, idbDeleteIcon } from "./useIndexedDB";
+import { storageGet, storageRemove } from "./useStorageHealth";
+
+/** One-time migration: move old base64 icons from localStorage into IndexedDB */
+async function migrateFromLocalStorage(profileId) {
+  const migrationKey = `symbosay_icons_migrated_${profileId}`;
+  if (storageGet(migrationKey, false)) return; // already done
+
+  const oldKey  = profileId ? `symbosay_custom_icons_${profileId}` : "symbosay_custom_icons";
+  const oldIcons = storageGet(oldKey, null);
+  if (Array.isArray(oldIcons) && oldIcons.length > 0) {
+    await Promise.all(
+      oldIcons.map((icon) => idbSaveIcon({ ...icon, profileId }))
+    );
+    storageRemove(oldKey);
+  }
+  // Mark as migrated even if there was nothing to move
+  try { localStorage.setItem(migrationKey, "1"); } catch {}
+}
 
 export function useCustomIcons(profileId) {
   const [icons,   setIcons]   = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Load from IndexedDB whenever profile changes
+  // Load from IndexedDB whenever profile changes (migrate old data first)
   useEffect(() => {
     if (!profileId) { setIcons([]); setLoading(false); return; }
     setLoading(true);
-    idbGetIcons(profileId).then((loaded) => {
-      setIcons(loaded);
-      setLoading(false);
-    });
+    migrateFromLocalStorage(profileId).then(() =>
+      idbGetIcons(profileId).then((loaded) => {
+        setIcons(loaded);
+        setLoading(false);
+      })
+    );
   }, [profileId]);
 
   const addIcon = useCallback(async ({ label, dataUrl }) => {

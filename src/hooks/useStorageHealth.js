@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 
-const QUOTA_WARNING_BYTES = 3 * 1024 * 1024; // warn at 3 MB used
+const QUOTA_WARNING_BYTES = 6 * 1024 * 1024; // warn at 6 MB used
 
 /**
  * Safe localStorage helpers — always wrapped in try/catch.
