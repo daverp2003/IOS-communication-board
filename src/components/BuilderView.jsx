@@ -225,6 +225,12 @@ export default function BuilderView({ T, theme, initialBoard, onSave, onBack, pr
     if (isDragging()) endDrag();
   };
 
+  const handleSymTouchCancel = () => {
+    clearTimeout(longPressTimer.current);
+    longPressTimer.current = null;
+    if (isDragging()) { removeAllGhosts(); removeDragOverlay(); }
+  };
+
   // ── HTML5 drag (desktop fallback) ─────────────────────────
   const handleDragStart = (sym, fromCell) => startDesktopDrag(sym, fromCell);
   const handleDragOver  = (e, idx)        => { e.preventDefault(); setDragOverCell(idx); };
@@ -265,7 +271,7 @@ export default function BuilderView({ T, theme, initialBoard, onSave, onBack, pr
   };
 
   // Draggable tile shared style
-  const draggableTileStyle = { touchAction: "pan-y", userSelect: "none", WebkitUserSelect: "none", cursor: "grab" };
+  const draggableTileStyle = { touchAction: "none", userSelect: "none", WebkitUserSelect: "none", cursor: "grab" };
 
   return (
     <div style={{ background: T.panel, borderRadius: 16, overflow: "hidden", boxShadow: `0 4px 20px ${T.shadow}` }}>
@@ -342,6 +348,7 @@ export default function BuilderView({ T, theme, initialBoard, onSave, onBack, pr
                         onTouchStart={(e) => handleSymTouchStart(sym, i, e)}
                         onTouchMove={handleSymTouchMove}
                         onTouchEnd={handleSymTouchEnd}
+                        onTouchCancel={handleSymTouchCancel}
                         style={{ ...draggableTileStyle, display: "flex", flexDirection: "column", alignItems: "center", gap: 2, width: "100%", padding: 4 }}
                       >
                         {sym.dataUrl
@@ -400,6 +407,7 @@ export default function BuilderView({ T, theme, initialBoard, onSave, onBack, pr
                     onTouchStart={(e) => handleSymTouchStart(sym, undefined, e)}
                     onTouchMove={handleSymTouchMove}
                     onTouchEnd={handleSymTouchEnd}
+                    onTouchCancel={handleSymTouchCancel}
                     style={{ ...draggableTileStyle, width: 64, height: 64, background: `${sym.color}22`, border: `2px solid ${sym.color}55`, borderRadius: 12, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2, flexShrink: 0 }}
                   >
                     <span style={{ fontSize: 24, pointerEvents: "none" }}>{sym.emoji}</span>
@@ -437,6 +445,7 @@ export default function BuilderView({ T, theme, initialBoard, onSave, onBack, pr
                         onTouchStart={(e) => handleSymTouchStart(icon, undefined, e)}
                         onTouchMove={handleSymTouchMove}
                         onTouchEnd={handleSymTouchEnd}
+                        onTouchCancel={handleSymTouchCancel}
                         style={{ ...draggableTileStyle, width: 64, height: 64, background: `${icon.color}18`, border: `2px solid ${icon.color}55`, borderRadius: 12, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2, overflow: "hidden" }}
                       >
                         <img src={icon.dataUrl} alt={icon.label} style={{ width: 36, height: 36, objectFit: "cover", borderRadius: 6, pointerEvents: "none" }} />
