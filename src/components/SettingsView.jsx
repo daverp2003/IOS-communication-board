@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-export default function SettingsView({ tileSize, setTileSize, theme, setTheme, T, pin, sync, boards, settings, speech }) {
+export default function SettingsView({ tileSize, setTileSize, theme, setTheme, T, pin, sync, boards, settings, speech, onPullSuccess }) {
   const [tab, setTab] = useState("display");
 
   const tabStyle = (id) => ({
@@ -62,7 +62,7 @@ export default function SettingsView({ tileSize, setTileSize, theme, setTheme, T
       )}
 
       {tab === "pin"  && <PINSettings T={T} pin={pin} />}
-      {tab === "sync" && <SyncSettings T={T} sync={sync} boards={boards} settings={{ tileSize, theme }} />}
+      {tab === "sync" && <SyncSettings T={T} sync={sync} boards={boards} settings={{ tileSize, theme }} onPullSuccess={onPullSuccess} />}
     </div>
   );
 }
@@ -70,7 +70,7 @@ export default function SettingsView({ tileSize, setTileSize, theme, setTheme, T
 // ─────────────────────────────────────────────────────────────
 //  SyncSettings
 // ─────────────────────────────────────────────────────────────
-function SyncSettings({ T, sync, boards, settings }) {
+function SyncSettings({ T, sync, boards, settings, onPullSuccess }) {
   const [pullCode,    setPullCode]    = useState("");
   const [pullSuccess, setPullSuccess] = useState(false);
   const [copied,      setCopied]      = useState(false);
@@ -85,6 +85,7 @@ function SyncSettings({ T, sync, boards, settings }) {
     if (pullCode.length < 6) return;
     const result = await sync.pullAll(pullCode);
     if (result) {
+      onPullSuccess?.(result.boards, result.settings);
       setPullSuccess(true);
       setTimeout(() => setPullSuccess(false), 3000);
     }
@@ -188,7 +189,7 @@ function SyncSettings({ T, sync, boards, settings }) {
 
         {pullSuccess && (
           <div style={{ fontSize: 13, color: "#10B981", marginTop: 8, fontWeight: 700 }}>
-            ✅ Data downloaded! Restart the app to see your boards.
+            ✅ Data downloaded and applied successfully!
           </div>
         )}
         {sync.syncError && (

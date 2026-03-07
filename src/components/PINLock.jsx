@@ -4,14 +4,23 @@ import { useState } from "react";
  * PINLock — full-screen PIN-pad overlay.
  *
  * Props:
- *   T          — theme object from THEMES (required)
+ *   T          — theme object (supports both config.js and styles/theme.js shapes)
  *   onSuccess  — called when correct PIN is entered
  *   onCancel   — called when Cancel is tapped (omit to hide Cancel button)
+ *   checkPIN   — optional (pin) => bool function; falls back to localStorage if omitted
  */
-export default function PINLock({ T, onSuccess, onCancel }) {
+export default function PINLock({ T, onSuccess, onCancel, checkPIN }) {
   const [entered, setEntered] = useState("");
   const [shake,   setShake]   = useState(false);
   const [error,   setError]   = useState("");
+
+  // FIX 1: Support both config.js T shape (panel/subtext/bg) and styles/theme.js shape (surface/textSub/surfaceAlt)
+  const surface    = T.panel      ?? T.surface    ?? "#fff";
+  const surfaceAlt = T.bg         ?? T.surfaceAlt ?? "#f3f4f6";
+  const textSub    = T.subtext    ?? T.textSub    ?? "#6b7280";
+  const primary    = T.primary    ?? "#6366F1";
+  const text       = T.text       ?? "#1a1a2e";
+  const border     = T.border     ?? "#e5e7eb";
 
   const handleDigit = (d) => {
     if (entered.length >= 4) return;
@@ -21,8 +30,12 @@ export default function PINLock({ T, onSuccess, onCancel }) {
 
     if (next.length === 4) {
       setTimeout(() => {
-        const stored = localStorage.getItem("symbosay_caregiver_pin");
-        if (next === stored) {
+        // FIX 7: Use checkPIN prop if provided, else fall back to localStorage
+        const correct = checkPIN
+          ? checkPIN(next)
+          : next === localStorage.getItem("symbosay_caregiver_pin");
+
+        if (correct) {
           setEntered("");
           onSuccess();
         } else {
@@ -69,27 +82,27 @@ export default function PINLock({ T, onSuccess, onCancel }) {
       <div
         className={`pin-card${shake ? " shaking" : ""}`}
         style={{
-          background: T.surface,
+          background: surface,
           borderRadius: 24,
           padding: "32px 24px 28px",
           width: 300,
           maxWidth: "90vw",
           boxShadow: "0 24px 64px rgba(0,0,0,0.5)",
-          border: `1px solid ${T.border}`,
+          border: `1px solid ${border}`,
         }}
       >
         {/* Header */}
         <div style={{ textAlign: "center", marginBottom: 24 }}>
           <div style={{
             width: 56, height: 56, borderRadius: "50%",
-            background: `linear-gradient(135deg, ${T.primary}, #8B5CF6)`,
+            background: `linear-gradient(135deg, ${primary}, #8B5CF6)`,
             display: "flex", alignItems: "center", justifyContent: "center",
             fontSize: 26, margin: "0 auto 12px",
           }}>🔒</div>
-          <div style={{ fontWeight: 900, fontSize: 18, color: T.text }}>
+          <div style={{ fontWeight: 900, fontSize: 18, color: text }}>
             Caregiver Access
           </div>
-          <div style={{ fontSize: 13, color: T.textSub, marginTop: 4 }}>
+          <div style={{ fontSize: 13, color: textSub, marginTop: 4 }}>
             Enter your 4-digit PIN
           </div>
         </div>
@@ -99,8 +112,8 @@ export default function PINLock({ T, onSuccess, onCancel }) {
           {Array(4).fill(0).map((_, i) => (
             <div key={i} style={{
               width: 16, height: 16, borderRadius: "50%",
-              background: i < entered.length ? T.primary : "transparent",
-              border: `2.5px solid ${i < entered.length ? T.primary : T.border}`,
+              background: i < entered.length ? primary : "transparent",
+              border: `2.5px solid ${i < entered.length ? primary : border}`,
               transition: "background 0.15s, border-color 0.15s",
             }} />
           ))}
@@ -127,15 +140,14 @@ export default function PINLock({ T, onSuccess, onCancel }) {
                   padding: "16px 0",
                   fontSize: k === "⌫" ? 20 : 22,
                   fontWeight: 800,
-                  background: k === "⌫" ? "transparent" : T.surfaceAlt,
-                  color: T.text,
-                  border: `1px solid ${T.border}`,
+                  background: k === "⌫" ? "transparent" : surfaceAlt,
+                  color: text,
+                  border: `1px solid ${border}`,
                   borderRadius: 14,
                   cursor: "pointer",
                   fontFamily: "inherit",
-                  transition: "transform 0.08s, opacity 0.08s",
+                  transition: "transform 0.08s",
                   WebkitTapHighlightColor: "transparent",
-                  active: { transform: "scale(0.9)" },
                 }}
                 onPointerDown={(e) => e.currentTarget.style.transform = "scale(0.90)"}
                 onPointerUp={(e)   => e.currentTarget.style.transform = "scale(1)"}
@@ -154,8 +166,8 @@ export default function PINLock({ T, onSuccess, onCancel }) {
             style={{
               marginTop: 16, width: "100%", padding: "11px 0",
               background: "transparent",
-              border: `1px solid ${T.border}`,
-              borderRadius: 12, color: T.textSub,
+              border: `1px solid ${border}`,
+              borderRadius: 12, color: textSub,
               cursor: "pointer", fontSize: 13, fontWeight: 600,
               fontFamily: "inherit",
             }}

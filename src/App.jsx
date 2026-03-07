@@ -3,6 +3,7 @@ import { EMOJI_SYMBOLS, getAllSymbols } from "./constants/symbols";
 import { CATEGORIES, THEMES } from "./constants/config";
 import { useSpeech }      from "./hooks/useSpeech";
 import { useBoards }      from "./hooks/useBoards";
+import { useSettings }    from "./hooks/useSettings";
 import { usePIN }         from "./hooks/usePIN";
 import { useProfiles }    from "./hooks/useProfiles";
 import { useSync }        from "./hooks/useSync";
@@ -27,10 +28,15 @@ export default function App() {
   const [activeCategory, setActiveCategory] = useState("greetings");
   const [message, setMessage]               = useState([]);
   const [searchQuery, setSearchQuery]       = useState("");
-  const [theme, setTheme]                   = useState("light");
-  const [tileSize, setTileSize]             = useState(108);
   const [editingBoard, setEditingBoard]     = useState(null);
   const [pinModalFor, setPinModalFor]       = useState(null);
+
+  // Persisted settings (theme + tileSize survive page refresh)
+  const { settings, updateSetting } = useSettings(profileId);
+  const theme    = settings.themeId;
+  const tileSize = settings.tileSize;
+  const setTheme    = (v) => updateSetting("themeId", v);
+  const setTileSize = (v) => updateSetting("tileSize", v);
 
   const pin  = usePIN();
   const sync = useSync(profileId, activeProfile?.name ?? "User");
@@ -39,6 +45,13 @@ export default function App() {
   const { boards, activeBoard, saveBoard, deleteBoard, loadBoard, clearActiveBoard }    = useBoards(profileId);
 
   const T = THEMES[theme] ?? THEMES.light;
+
+  // Apply pulled sync data back to local state
+  const handlePullSuccess = (pulledBoards, pulledSettings) => {
+    if (pulledBoards?.length) pulledBoards.forEach(saveBoard);
+    if (pulledSettings?.tileSize) updateSetting("tileSize", pulledSettings.tileSize);
+    if (pulledSettings?.themeId) updateSetting("themeId", pulledSettings.themeId);
+  };
 
   const sz = {
     tile:  tileSize,
@@ -211,6 +224,7 @@ export default function App() {
             sync={sync}
             boards={boards}
             settings={{ tileSize, theme }}
+            onPullSuccess={handlePullSuccess}
           />
         )}
       </div>

@@ -41,19 +41,22 @@ export const BOARD_EMOJIS = [
 
 export const THEMES = {
   light: {
-    bg: "#F8F7FF", panel: "#FFFFFF", text: "#1A1A2E",
-    subtext: "#6B7280", border: "#E5E7EB",
-    msgBg: "#EEF2FF", shadow: "rgba(0,0,0,0.07)",
+    bg: "#F8F7FF", panel: "#FFFFFF", surface: "#FFFFFF", surfaceAlt: "#F1F0FF",
+    text: "#1A1A2E", subtext: "#6B7280", textSub: "#6B7280",
+    border: "#E5E7EB", msgBg: "#EEF2FF", shadow: "rgba(0,0,0,0.07)",
+    primary: "#6366F1",
   },
   dark: {
-    bg: "#0F0F1A", panel: "#1A1A2E", text: "#F3F4F6",
-    subtext: "#9CA3AF", border: "#2D2D45",
-    msgBg: "#1E1E3A", shadow: "rgba(0,0,0,0.3)",
+    bg: "#0F0F1A", panel: "#1A1A2E", surface: "#1A1A2E", surfaceAlt: "#231F3A",
+    text: "#F3F4F6", subtext: "#9CA3AF", textSub: "#9CA3AF",
+    border: "#2D2D45", msgBg: "#1E1E3A", shadow: "rgba(0,0,0,0.3)",
+    primary: "#818CF8",
   },
   highcontrast: {
-    bg: "#000000", panel: "#111111", text: "#FFFFFF",
-    subtext: "#FFFF00", border: "#FFFFFF",
-    msgBg: "#0A0A0A", shadow: "rgba(255,255,255,0.2)",
+    bg: "#000000", panel: "#111111", surface: "#111111", surfaceAlt: "#1A1A1A",
+    text: "#FFFFFF", subtext: "#FFFF00", textSub: "#FFFF00",
+    border: "#FFFFFF", msgBg: "#0A0A0A", shadow: "rgba(255,255,255,0.2)",
+    primary: "#FFFF00",
   },
 };
 
