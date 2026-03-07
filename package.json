@@ -1,9 +1,5 @@
 {
-<<<<<<< HEAD
   "name": "symbosay",
-=======
-  "name": "voiceboard-pro",
->>>>>>> 585a3f9eb3a482b74cd3fc42b87c873efeeab7a3
   "version": "1.0.0",
   "private": true,
   "dependencies": {
