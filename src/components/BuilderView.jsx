@@ -13,17 +13,15 @@ function removeAllGhosts() {
 // Transparent full-screen overlay shown during drag to:
 //  - block accidental taps on other elements
 //  - allow non-passive touchmove so we can prevent page scroll
+// Scroll-blocking overlay (visual only — touch events don't follow finger to new elements)
 let dragOverlay = null;
-function createDragOverlay(onMove, onEnd) {
-  removeDragOverlay();
+function createScrollBlocker() {
+  if (dragOverlay) return;
   dragOverlay = document.createElement("div");
   dragOverlay.style.cssText = "position:fixed;inset:0;z-index:99998;background:transparent;touch-action:none;";
-  dragOverlay.addEventListener("touchmove",  onMove, { passive: false });
-  dragOverlay.addEventListener("touchend",   onEnd,  { passive: true });
-  dragOverlay.addEventListener("touchcancel",onEnd,  { passive: true });
   document.body.appendChild(dragOverlay);
 }
-function removeDragOverlay() {
+function removeScrollBlocker() {
   if (dragOverlay) { dragOverlay.remove(); dragOverlay = null; }
 }
 
@@ -41,7 +39,7 @@ function useTouchDrag({ onDrop, onDragOver, onDragEnd }) {
   /** Touch drag — ghost + overlay to block scroll */
   const startTouchDrag = useCallback((sym, fromCell, clientX, clientY) => {
     removeAllGhosts();
-    removeDragOverlay();
+    removeScrollBlocker();
     dragging.current = { sym, fromCell };
 
     const ghost = document.createElement("div");
@@ -74,49 +72,61 @@ function useTouchDrag({ onDrop, onDragOver, onDragEnd }) {
     document.body.appendChild(ghost);
     ghostRef.current = ghost;
 
-    createDragOverlay(
-      (e) => {
-        e.preventDefault();
-        const t = e.touches[0];
-        if (ghostRef.current) {
-          ghostRef.current.style.left = t.clientX + "px";
-          ghostRef.current.style.top  = t.clientY + "px";
-        }
-        ghostRef.current && (ghostRef.current.style.display = "none");
-        const el = document.elementFromPoint(t.clientX, t.clientY);
-        ghostRef.current && (ghostRef.current.style.display = "flex");
-        const cellEl = el?.closest("[data-cell-idx]");
-        const idx = cellEl ? parseInt(cellEl.dataset.cellIdx) : null;
-        if (idx !== overCellRef.current) {
-          overCellRef.current = idx;
-          onDragOver(idx);
-        }
-      },
-      () => {
-        removeAllGhosts();
-        removeDragOverlay();
-        ghostRef.current = null;
-        if (dragging.current && overCellRef.current !== null) {
-          onDrop(dragging.current.sym, dragging.current.fromCell, overCellRef.current);
-        }
-        dragging.current    = null;
-        overCellRef.current = null;
-        onDragEnd();
+    // Scroll blocker overlay (visual only)
+    createScrollBlocker();
+
+    // Touch events always fire on the ORIGINAL target element, never on elements
+    // the finger moves over. We must listen on document to receive them.
+    const onMove = (e) => {
+      e.preventDefault();
+      const t = e.touches[0];
+      if (ghostRef.current) {
+        ghostRef.current.style.left = t.clientX + "px";
+        ghostRef.current.style.top  = t.clientY + "px";
       }
-    );
+      // Temporarily hide ghost so elementFromPoint can see through it
+      if (ghostRef.current) ghostRef.current.style.display = "none";
+      const el = document.elementFromPoint(t.clientX, t.clientY);
+      if (ghostRef.current) ghostRef.current.style.display = "flex";
+      const cellEl = el?.closest("[data-cell-idx]");
+      const idx = cellEl ? parseInt(cellEl.dataset.cellIdx) : null;
+      if (idx !== overCellRef.current) {
+        overCellRef.current = idx;
+        onDragOver(idx);
+      }
+    };
+
+    const onEnd = () => {
+      document.removeEventListener("touchmove",   onMove,  { passive: false });
+      document.removeEventListener("touchend",    onEnd);
+      document.removeEventListener("touchcancel", onEnd);
+      removeAllGhosts();
+      removeScrollBlocker();
+      ghostRef.current = null;
+      if (dragging.current && overCellRef.current !== null) {
+        onDrop(dragging.current.sym, dragging.current.fromCell, overCellRef.current);
+      }
+      dragging.current    = null;
+      overCellRef.current = null;
+      onDragEnd();
+    };
+
+    document.addEventListener("touchmove",   onMove,  { passive: false });
+    document.addEventListener("touchend",    onEnd,   { passive: true });
+    document.addEventListener("touchcancel", onEnd,   { passive: true });
   }, [onDrop, onDragOver, onDragEnd]);
 
   /** Desktop HTML5 drag — no overlay (overlay blocks dragover/drop on cells) */
   const startDesktopDrag = useCallback((sym, fromCell) => {
     removeAllGhosts();
-    removeDragOverlay();
+    removeScrollBlocker();
     dragging.current    = { sym, fromCell };
     overCellRef.current = null;
   }, []);
 
   const endDrag = useCallback(() => {
     removeAllGhosts();
-    removeDragOverlay();
+    removeScrollBlocker();
     ghostRef.current = null;
     if (dragging.current && overCellRef.current !== null) {
       onDrop(dragging.current.sym, dragging.current.fromCell, overCellRef.current);
@@ -130,7 +140,7 @@ function useTouchDrag({ onDrop, onDragOver, onDragEnd }) {
   const dropAt = useCallback((idx) => {
     if (!dragging.current) return;
     removeAllGhosts();
-    removeDragOverlay();
+    removeScrollBlocker();
     ghostRef.current = null;
     onDrop(dragging.current.sym, dragging.current.fromCell, idx);
     dragging.current    = null;
@@ -139,7 +149,7 @@ function useTouchDrag({ onDrop, onDragOver, onDragEnd }) {
   }, [onDrop, onDragEnd]);
 
   // Safety cleanup on unmount
-  useEffect(() => () => { removeAllGhosts(); removeDragOverlay(); }, []);
+  useEffect(() => () => { removeAllGhosts(); removeScrollBlocker(); }, []);
 
   return { startTouchDrag, startDesktopDrag, endDrag, dropAt, isDragging };
 }
@@ -241,14 +251,26 @@ export default function BuilderView({ T, theme, initialBoard, onSave, onBack, pr
   const handleSymTouchCancel = () => {
     clearTimeout(longPressTimer.current);
     longPressTimer.current = null;
-    if (isDragging()) { removeAllGhosts(); removeDragOverlay(); }
+    if (isDragging()) { removeAllGhosts(); removeScrollBlocker(); }
   };
 
-  // ── HTML5 drag (desktop fallback) ─────────────────────────
-  const handleDragStart = (sym, fromCell) => startDesktopDrag(sym, fromCell);
-  const handleDragOver  = (e, idx)        => { e.preventDefault(); setDragOverCell(idx); };
-  const handleDragEnd   = ()              => { endDrag(); setDragOverCell(null); };
-  const handleCellDrop  = (e, idx)        => { e.preventDefault(); dropAt(idx); };
+  // ── HTML5 drag (desktop) — uses dataTransfer, no ref juggling ──
+  const handleDragStart = (sym, fromCell, e) => {
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("application/json", JSON.stringify({ sym, fromCell: fromCell ?? null }));
+    setDragOverCell(null);
+  };
+  const handleDragOver  = (e, idx) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setDragOverCell(idx); };
+  const handleDragLeave = ()       => setDragOverCell(null);
+  const handleDragEnd   = ()       => setDragOverCell(null);
+  const handleCellDrop  = (e, idx) => {
+    e.preventDefault();
+    try {
+      const { sym, fromCell } = JSON.parse(e.dataTransfer.getData("application/json"));
+      handleDrop(sym, fromCell, idx);
+    } catch (_) {}
+    setDragOverCell(null);
+  };
 
   const removeFromCell = (idx) => setCells((p) => { const n = { ...p }; delete n[idx]; return n; });
 
@@ -343,6 +365,7 @@ export default function BuilderView({ T, theme, initialBoard, onSave, onBack, pr
                   key={i}
                   data-cell-idx={i}
                   onDragOver={(e) => handleDragOver(e, i)}
+                  onDragLeave={handleDragLeave}
                   onDrop={(e) => handleCellDrop(e, i)}
                   style={{
                     aspectRatio: "1", borderRadius: 12, position: "relative",
@@ -357,7 +380,7 @@ export default function BuilderView({ T, theme, initialBoard, onSave, onBack, pr
                       <div
                         draggable
                         data-draggable="true"
-                        onDragStart={() => handleDragStart(sym, i)}
+                        onDragStart={(e) => handleDragStart(sym, i, e)}
                         onDragEnd={handleDragEnd}
                         onTouchStart={(e) => handleSymTouchStart(sym, i, e)}
                         onTouchMove={handleSymTouchMove}
@@ -417,7 +440,7 @@ export default function BuilderView({ T, theme, initialBoard, onSave, onBack, pr
                     key={sym.id}
                     draggable
                     data-draggable="true"
-                    onDragStart={() => handleDragStart(sym, undefined)}
+                    onDragStart={(e) => handleDragStart(sym, undefined, e)}
                     onDragEnd={handleDragEnd}
                     onTouchStart={(e) => handleSymTouchStart(sym, undefined, e)}
                     onTouchMove={handleSymTouchMove}
@@ -456,7 +479,7 @@ export default function BuilderView({ T, theme, initialBoard, onSave, onBack, pr
                       <div
                         draggable
                         data-draggable="true"
-                        onDragStart={() => handleDragStart(icon, undefined)}
+                        onDragStart={(e) => handleDragStart(icon, undefined, e)}
                         onDragEnd={handleDragEnd}
                         onTouchStart={(e) => handleSymTouchStart(icon, undefined, e)}
                         onTouchMove={handleSymTouchMove}
