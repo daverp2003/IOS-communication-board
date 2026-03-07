@@ -5,8 +5,11 @@ const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 
 const SYNC_CODE_KEY = (profileId) => `symbosay_sync_code_${profileId}`;
 
+// Pass apikey as URL param as well as header — handles both old and new Supabase
 async function sbFetch(path, options = {}) {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+  const separator = path.includes("?") ? "&" : "?";
+  const url = `${SUPABASE_URL}/rest/v1/${path}${separator}apikey=${SUPABASE_KEY}`;
+  const res = await fetch(url, {
     headers: {
       "Content-Type":  "application/json",
       "Prefer":        "return=minimal",
