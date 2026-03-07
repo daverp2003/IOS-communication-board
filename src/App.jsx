@@ -8,6 +8,7 @@ import { usePIN }              from "./hooks/usePIN";
 import { useProfiles }         from "./hooks/useProfiles";
 import { useSync }             from "./hooks/useSync";
 import { useStorageHealth, storageGet, storageSet } from "./hooks/useStorageHealth";
+import { useOnlineStatus } from "./hooks/useOnlineStatus";
 import VirtualSymbolGrid  from "./components/VirtualSymbolGrid";
 import MessageBar         from "./components/MessageBar";
 import MyBoardsView       from "./components/MyBoardsView";
@@ -27,6 +28,9 @@ export default function App() {
 
   // ── Storage health ─────────────────────────────────────
   const { storageWarning, storageError, setStorageError, clearError } = useStorageHealth();
+
+  // ── Online status ──────────────────────────────────────
+  const { isOnline, wasOffline } = useOnlineStatus();
 
   // ── Per-profile state ──────────────────────────────────
   const [view, setView]                     = useState("board");
@@ -205,6 +209,31 @@ export default function App() {
               )}
             </>
           )}
+        </div>
+      )}
+
+      {/* Offline banner */}
+      {!isOnline && (
+        <div style={{
+          background: "#1F2937",
+          padding: "7px 16px",
+          display: "flex", alignItems: "center", gap: 8,
+        }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: "#F9FAFB" }}>
+            📡 You're offline — the app will still work, but sync is unavailable.
+          </span>
+        </div>
+      )}
+      {isOnline && wasOffline && (
+        <div style={{
+          background: "#D1FAE5",
+          borderBottom: "1px solid #6EE7B7",
+          padding: "7px 16px",
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+        }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: "#065F46" }}>
+            ✅ Back online
+          </span>
         </div>
       )}
 

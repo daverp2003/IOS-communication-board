@@ -1,11 +1,6 @@
 {
-<<<<<<< HEAD
   "short_name": "SymboSay",
   "name": "SymboSay — AAC Communication Board",
-=======
-  "short_name": "VoiceBoard",
-  "name": "VoiceBoard Pro — AAC Communication Board",
->>>>>>> 585a3f9eb3a482b74cd3fc42b87c873efeeab7a3
   "description": "A premium AAC communication board for individuals who are unable to speak.",
   "icons": [
     { "src": "icon-192.png", "type": "image/png", "sizes": "192x192", "purpose": "any maskable" },
