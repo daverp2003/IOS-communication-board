@@ -30,18 +30,23 @@ export default function SymbolTile({ symbol, sz, T, theme, onPress, draggable, o
     }
   };
 
+  const wasTouchRef = useRef(false);
+
   const handleTouchEnd = () => {
     setPressed(false);
     if (!didScrollRef.current && !draggable) {
-      // Finger barely moved — it's a tap, fire the press
+      wasTouchRef.current = true;
       onPress?.();
+      // Reset after click event has had time to fire and be blocked
+      setTimeout(() => { wasTouchRef.current = false; }, 500);
     }
     touchStartRef.current = null;
     didScrollRef.current  = false;
   };
 
-  const handleClick = (e) => {
-    // Desktop mouse click only — touch is handled above
+  const handleClick = () => {
+    // Block click if it was already fired from touch
+    if (wasTouchRef.current) return;
     if (draggable) return;
     onPress?.();
   };
