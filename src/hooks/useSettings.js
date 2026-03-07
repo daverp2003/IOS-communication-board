@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { storageGet, storageSet } from "./useStorageHealth";
 
 const DEFAULTS = {
   themeId:  "light",
@@ -11,26 +12,19 @@ function storageKey(profileId) {
 }
 
 function loadSettings(profileId) {
-  try {
-    const saved = localStorage.getItem(storageKey(profileId));
-    return saved ? { ...DEFAULTS, ...JSON.parse(saved) } : DEFAULTS;
-  } catch {
-    return DEFAULTS;
-  }
+  const saved = storageGet(storageKey(profileId), null);
+  return saved ? { ...DEFAULTS, ...saved } : { ...DEFAULTS };
 }
 
 export function useSettings(profileId) {
   const [settings, setSettings] = useState(() => loadSettings(profileId));
 
-  // Reload when profile switches
   useEffect(() => {
     setSettings(loadSettings(profileId));
   }, [profileId]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(storageKey(profileId), JSON.stringify(settings));
-    } catch {}
+    storageSet(storageKey(profileId), settings);
   }, [settings, profileId]);
 
   const updateSetting = (key, value) => {

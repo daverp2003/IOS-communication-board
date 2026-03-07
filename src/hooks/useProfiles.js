@@ -1,7 +1,8 @@
 import { useState, useCallback } from "react";
+import { storageGet, storageSet, storageRemove } from "./useStorageHealth";
 
-const PROFILES_KEY    = "symbosay_profiles";
-const ACTIVE_KEY      = "symbosay_active_profile";
+const PROFILES_KEY = "symbosay_profiles";
+const ACTIVE_KEY   = "symbosay_active_profile";
 
 const AVATAR_EMOJIS = [
   "😊","🌟","🦁","🐶","🦋","🌈","🎯","🚀",
@@ -16,18 +17,12 @@ const DEFAULT_PROFILE = {
 };
 
 function loadProfiles() {
-  try {
-    const stored = localStorage.getItem(PROFILES_KEY);
-    const profiles = stored ? JSON.parse(stored) : [DEFAULT_PROFILE];
-    // Always ensure at least one profile exists
-    return profiles.length ? profiles : [DEFAULT_PROFILE];
-  } catch {
-    return [DEFAULT_PROFILE];
-  }
+  const profiles = storageGet(PROFILES_KEY, [DEFAULT_PROFILE]);
+  return Array.isArray(profiles) && profiles.length ? profiles : [DEFAULT_PROFILE];
 }
 
 function saveProfiles(profiles) {
-  localStorage.setItem(PROFILES_KEY, JSON.stringify(profiles));
+  return storageSet(PROFILES_KEY, profiles);
 }
 
 export { AVATAR_EMOJIS };
@@ -35,13 +30,13 @@ export { AVATAR_EMOJIS };
 export function useProfiles() {
   const [profiles,      setProfiles]      = useState(loadProfiles);
   const [activeProfile, setActiveProfile] = useState(() => {
-    const savedId = localStorage.getItem(ACTIVE_KEY);
+    const savedId = storageGet(ACTIVE_KEY, null);
     const all     = loadProfiles();
-    return all.find((p) => p.id === savedId) || null; // null = show picker
+    return all.find((p) => p.id === savedId) || null;
   });
 
   const selectProfile = useCallback((profile) => {
-    localStorage.setItem(ACTIVE_KEY, profile.id);
+    storageSet(ACTIVE_KEY, profile.id);
     setActiveProfile(profile);
   }, []);
 
@@ -61,19 +56,16 @@ export function useProfiles() {
   }, []);
 
   const deleteProfile = useCallback((id) => {
-    // Clean up all data for this profile
-    const keySuffixes = ["boards", "settings", "custom_icons"];
-    keySuffixes.forEach((s) => localStorage.removeItem(`symbosay_${s}_${id}`));
-
+    ["boards", "settings", "custom_icons", "sync_code"].forEach((s) =>
+      storageRemove(`symbosay_${s}_${id}`)
+    );
     setProfiles((prev) => {
       const next = prev.filter((p) => p.id !== id);
       saveProfiles(next);
       return next;
     });
-
-    // If deleting the active profile, go back to picker
     if (activeProfile?.id === id) {
-      localStorage.removeItem(ACTIVE_KEY);
+      storageRemove(ACTIVE_KEY);
       setActiveProfile(null);
     }
   }, [activeProfile]);
@@ -88,7 +80,7 @@ export function useProfiles() {
   }, []);
 
   const logout = useCallback(() => {
-    localStorage.removeItem(ACTIVE_KEY);
+    storageRemove(ACTIVE_KEY);
     setActiveProfile(null);
   }, []);
 

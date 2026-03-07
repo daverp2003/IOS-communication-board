@@ -1,30 +1,19 @@
 import { useState, useEffect } from "react";
 import { EMOJI_SYMBOLS } from "../constants/symbols";
 import { DEFAULT_BOARDS } from "../constants/config";
+import { storageGet, storageSet } from "./useStorageHealth";
 
 function storageKey(profileId) {
   return profileId ? `symbosay_boards_${profileId}` : "symbosay_boards";
 }
 
 function loadBoards(profileId) {
-  try {
-    const stored = localStorage.getItem(storageKey(profileId));
-    if (stored) return JSON.parse(stored);
-  } catch (e) {
-    console.warn("Could not load boards:", e);
-  }
+  const boards = storageGet(storageKey(profileId), null);
+  if (Array.isArray(boards) && boards.length) return boards;
   return DEFAULT_BOARDS(EMOJI_SYMBOLS);
 }
 
-function persistBoards(boards, profileId) {
-  try {
-    localStorage.setItem(storageKey(profileId), JSON.stringify(boards));
-  } catch (e) {
-    console.warn("Could not save boards:", e);
-  }
-}
-
-export function useBoards(profileId) {
+export function useBoards(profileId, onStorageError) {
   const [boards, setBoards]           = useState(() => loadBoards(profileId));
   const [activeBoard, setActiveBoard] = useState(null);
 
@@ -34,13 +23,21 @@ export function useBoards(profileId) {
     setActiveBoard(null);
   }, [profileId]);
 
+  // Persist whenever boards change
   useEffect(() => {
-    persistBoards(boards, profileId);
-  }, [boards, profileId]);
+    const result = storageSet(storageKey(profileId), boards);
+    if (!result.ok && result.quota) {
+      onStorageError?.("Storage is full — boards could not be saved. Delete some custom photos to free up space.");
+    }
+  }, [boards, profileId, onStorageError]);
 
   const saveBoard = (boardData) => {
     const id    = boardData.id || "board-" + Date.now();
-    const board = { ...boardData, id };
+    const board = {
+      ...boardData,
+      id,
+      updatedAt: new Date().toISOString(),
+    };
     setBoards((prev) =>
       prev.some((b) => b.id === id)
         ? prev.map((b) => (b.id === id ? board : b))

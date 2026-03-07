@@ -1,12 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { EMOJI_SYMBOLS, getAllSymbols } from "./constants/symbols";
 import { CATEGORIES, THEMES } from "./constants/config";
-import { useSpeech }      from "./hooks/useSpeech";
-import { useBoards }      from "./hooks/useBoards";
-import { useSettings }    from "./hooks/useSettings";
-import { usePIN }         from "./hooks/usePIN";
-import { useProfiles }    from "./hooks/useProfiles";
-import { useSync }        from "./hooks/useSync";
+import { useSpeech }           from "./hooks/useSpeech";
+import { useBoards }           from "./hooks/useBoards";
+import { useSettings }         from "./hooks/useSettings";
+import { usePIN }              from "./hooks/usePIN";
+import { useProfiles }         from "./hooks/useProfiles";
+import { useSync }             from "./hooks/useSync";
+import { useStorageHealth, storageGet, storageSet } from "./hooks/useStorageHealth";
 import SymbolTile         from "./components/SymbolTile";
 import MessageBar         from "./components/MessageBar";
 import MyBoardsView       from "./components/MyBoardsView";
@@ -16,6 +17,7 @@ import PINLock            from "./components/PINLock";
 import ProfilePicker      from "./components/ProfilePicker";
 
 const PROTECTED_VIEWS = ["myboards", "builder", "settings"];
+const MSG_SAVE_KEY    = (profileId) => `symbosay_saved_message_${profileId}`;
 
 export default function App() {
   // ── Profiles ───────────────────────────────────────────
@@ -23,10 +25,13 @@ export default function App() {
 
   const profileId = activeProfile?.id ?? null;
 
+  // ── Storage health ─────────────────────────────────────
+  const { storageWarning, storageError, setStorageError, clearError } = useStorageHealth();
+
   // ── Per-profile state ──────────────────────────────────
   const [view, setView]                     = useState("board");
   const [activeCategory, setActiveCategory] = useState("greetings");
-  const [message, setMessage]               = useState([]);
+  const [message, setMessage]               = useState(() => storageGet(MSG_SAVE_KEY(profileId), []));
   const [searchQuery, setSearchQuery]       = useState("");
   const [editingBoard, setEditingBoard]     = useState(null);
   const [pinModalFor, setPinModalFor]       = useState(null);
@@ -42,7 +47,24 @@ export default function App() {
   const sync = useSync(profileId, activeProfile?.name ?? "User");
   const speech = useSpeech();
   const { speaking, speak, stop } = speech;
-  const { boards, activeBoard, saveBoard, deleteBoard, loadBoard, clearActiveBoard }    = useBoards(profileId);
+  const { boards, activeBoard, saveBoard, deleteBoard, loadBoard, clearActiveBoard } = useBoards(profileId, setStorageError);
+
+  // Restore saved message when profile changes
+  useEffect(() => {
+    setMessage(storageGet(MSG_SAVE_KEY(profileId), []));
+  }, [profileId]);
+
+  // Auto-save message bar when page closes or profile switches
+  useEffect(() => {
+    const save = () => {
+      if (profileId) storageSet(MSG_SAVE_KEY(profileId), message);
+    };
+    window.addEventListener("beforeunload", save);
+    return () => {
+      save(); // also save on unmount / profile switch
+      window.removeEventListener("beforeunload", save);
+    };
+  }, [message, profileId]);
 
   const T = THEMES[theme] ?? THEMES.light;
 
@@ -183,6 +205,25 @@ export default function App() {
               )}
             </>
           )}
+        </div>
+      )}
+
+      {/* Storage warning banners */}
+      {(storageError || storageWarning) && (
+        <div style={{
+          background: storageError ? "#FEF2F2" : "#FFFBEB",
+          borderBottom: `1px solid ${storageError ? "#FECACA" : "#FDE68A"}`,
+          padding: "8px 16px",
+          display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10,
+        }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: storageError ? "#DC2626" : "#92400E" }}>
+            {storageError
+              ? `⚠️ ${storageError}`
+              : storageWarning === "full"
+                ? "⚠️ Storage is full — delete custom photos to free up space."
+                : "⚠️ Storage is nearly full — consider deleting unused boards or photos."}
+          </span>
+          <button onClick={clearError} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, color: "#6B7280", flexShrink: 0 }}>✕</button>
         </div>
       )}
 
