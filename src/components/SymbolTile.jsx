@@ -1,33 +1,48 @@
 import { useState, useRef } from "react";
 
+// How many pixels of movement counts as a scroll (not a tap)
+const SCROLL_THRESHOLD = 8;
+
 export default function SymbolTile({ symbol, sz, T, theme, onPress, draggable, onDragStart, onDragEnd, compact }) {
   const [pressed, setPressed] = useState(false);
-  const didFireRef = useRef(false); // prevent double-fire on touch devices
+  const touchStartRef = useRef(null); // { x, y } of touch start
+  const didScrollRef  = useRef(false);
 
   const w  = compact ? 72 : sz.tile;
   const ef = compact ? 26 : sz.emoji;
   const ff = compact ? 9  : sz.font;
 
   const handleTouchStart = (e) => {
+    const t = e.touches[0];
+    touchStartRef.current = { x: t.clientX, y: t.clientY };
+    didScrollRef.current  = false;
     setPressed(true);
-    if (!draggable) {
-      didFireRef.current = true;
-      onPress?.();
+  };
+
+  const handleTouchMove = (e) => {
+    if (!touchStartRef.current) return;
+    const t  = e.touches[0];
+    const dx = Math.abs(t.clientX - touchStartRef.current.x);
+    const dy = Math.abs(t.clientY - touchStartRef.current.y);
+    if (dx > SCROLL_THRESHOLD || dy > SCROLL_THRESHOLD) {
+      didScrollRef.current = true;
+      setPressed(false); // remove pressed highlight while scrolling
     }
   };
 
   const handleTouchEnd = () => {
     setPressed(false);
-    // Reset after delay so click can check it
-    setTimeout(() => { didFireRef.current = false; }, 500);
+    if (!didScrollRef.current && !draggable) {
+      // Finger barely moved — it's a tap, fire the press
+      onPress?.();
+    }
+    touchStartRef.current = null;
+    didScrollRef.current  = false;
   };
 
-  const handleClick = () => {
-    // Only fire from click if NOT already fired from touch
+  const handleClick = (e) => {
+    // Desktop mouse click only — touch is handled above
     if (draggable) return;
-    if (didFireRef.current) return;
-    setPressed(true);
-    setTimeout(() => setPressed(false), 150);
     onPress?.();
   };
 
@@ -38,6 +53,7 @@ export default function SymbolTile({ symbol, sz, T, theme, onPress, draggable, o
       onDragEnd={onDragEnd}
       onClick={handleClick}
       onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
       style={{
         width: w, height: w,
@@ -56,7 +72,7 @@ export default function SymbolTile({ symbol, sz, T, theme, onPress, draggable, o
         flexShrink: 0,
         boxShadow: pressed ? `0 0 0 3px ${symbol.color}55` : "none",
         overflow: "hidden",
-        touchAction: "manipulation",
+        touchAction: "pan-y",
         WebkitTapHighlightColor: "transparent",
       }}
     >
