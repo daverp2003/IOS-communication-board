@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { storageGet, storageSet } from "./useStorageHealth";
 
@@ -77,17 +77,7 @@ function sanitiseSettings(raw) {
   return Object.keys(out).length ? out : null;
 }
 
-// ── Supabase helpers — set app.sync_code header on every request ──
-function clientFor(syncCode) {
-  // Pass the sync code as a custom header; Supabase RLS reads it via
-  // current_setting('app.sync_code') to enforce per-code write access.
-  return supabase.rpc("set_config", {
-    setting_name:  "app.sync_code",
-    setting_value: syncCode,
-    is_local:      true,
-  }).then(() => supabase);
-}
-
+// ── Supabase helpers ─────────────────────────────────────────
 async function pushBoards(syncCode, profileName, boards) {
   await supabase.from("sync_boards").delete().eq("sync_code", syncCode);
   if (!boards.length) return;
