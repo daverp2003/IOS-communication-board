@@ -18,7 +18,7 @@ let dragOverlay = null;
 function createScrollBlocker() {
   if (dragOverlay) return;
   dragOverlay = document.createElement("div");
-  dragOverlay.style.cssText = "position:fixed;inset:0;z-index:99998;background:transparent;touch-action:none;";
+  dragOverlay.style.cssText = "position:fixed;inset:0;z-index:99998;background:transparent;touch-action:none;pointer-events:none;";
   document.body.appendChild(dragOverlay);
 }
 function removeScrollBlocker() {
