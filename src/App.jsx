@@ -34,7 +34,8 @@ export default function App() {
 
   const pin  = usePIN();
   const sync = useSync(profileId, activeProfile?.name ?? "User");
-  const { speaking, speak, stop }                                                       = useSpeech();
+  const speech = useSpeech();
+  const { speaking, speak, stop } = speech;
   const { boards, activeBoard, saveBoard, deleteBoard, loadBoard, clearActiveBoard }    = useBoards(profileId);
 
   const T = THEMES[theme] ?? THEMES.light;

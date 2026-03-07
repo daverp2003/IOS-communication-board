@@ -62,7 +62,7 @@ export default function SettingsView({ tileSize, setTileSize, theme, setTheme, T
       )}
 
       {tab === "pin"  && <PINSettings T={T} pin={pin} />}
-      {tab === "sync" && <SyncSettings T={T} sync={sync} boards={boards} settings={{ tileSize, selectedVoice, theme }} />}
+      {tab === "sync" && <SyncSettings T={T} sync={sync} boards={boards} settings={{ tileSize, theme }} />}
     </div>
   );
 }
