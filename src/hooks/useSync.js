@@ -1,16 +1,91 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
+import { storageGet, storageSet } from "./useStorageHealth";
 
 const supabase = createClient(
   "https://fgrfvoazrkutlmiqnmov.supabase.co",
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZncmZ2b2F6cmt1dGxtaXFubW92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4ODkwNjgsImV4cCI6MjA4ODQ2NTA2OH0.lofg1sMtoeY-XIbtkUVb4pMcbUXmD8lnL-N3uYfwTT0"
 );
 
-const SYNC_CODE_KEY = (profileId) => `symbosay_sync_code_${profileId}`;
+const SYNC_CODE_KEY   = (profileId) => `symbosay_sync_code_${profileId}`;
+const PULL_LOG_KEY    = "symbosay_pull_attempts";
+
+// Rate limit: max 5 pull attempts per 10 minutes
+const RATE_LIMIT_MAX      = 5;
+const RATE_LIMIT_WINDOW   = 10 * 60 * 1000;
+
+// Upgraded to 8 chars — ~1 trillion combinations vs ~1 billion for 6
+const CODE_CHARS   = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const CODE_LENGTH  = 8;
 
 function generateSyncCode() {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+  return Array.from(
+    { length: CODE_LENGTH },
+    () => CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)]
+  ).join("");
+}
+
+// ── Rate limiter ──────────────────────────────────────────────
+function checkRateLimit() {
+  const now = Date.now();
+  const log = storageGet(PULL_LOG_KEY, []).filter((t) => now - t < RATE_LIMIT_WINDOW);
+  if (log.length >= RATE_LIMIT_MAX) {
+    const retryIn = Math.ceil((RATE_LIMIT_WINDOW - (now - log[0])) / 1000 / 60);
+    return { allowed: false, retryIn };
+  }
+  storageSet(PULL_LOG_KEY, [...log, now]);
+  return { allowed: true };
+}
+
+// ── Data validation ───────────────────────────────────────────
+function isValidBoard(b) {
+  return (
+    b &&
+    typeof b === "object" &&
+    typeof b.id === "string" &&
+    typeof b.name === "string" &&
+    b.name.length > 0 &&
+    b.name.length <= 100 &&
+    typeof b.color === "string" &&
+    b.cells !== undefined
+  );
+}
+
+function isValidSettings(s) {
+  return (
+    s &&
+    typeof s === "object" &&
+    (!s.themeId  || typeof s.themeId  === "string") &&
+    (!s.tileSize || typeof s.tileSize === "number") &&
+    (!s.voiceId  || typeof s.voiceId  === "string")
+  );
+}
+
+function sanitiseBoards(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(isValidBoard).slice(0, 100); // cap at 100 boards
+}
+
+function sanitiseSettings(raw) {
+  if (!isValidSettings(raw)) return null;
+  // Only allow known keys through — strip anything unexpected
+  const { themeId, tileSize, voiceId } = raw;
+  const out = {};
+  if (themeId  && ["light","dark","highcontrast"].includes(themeId)) out.themeId  = themeId;
+  if (tileSize && tileSize >= 70 && tileSize <= 350)                  out.tileSize = tileSize;
+  if (voiceId  && typeof voiceId === "string")                        out.voiceId  = voiceId;
+  return Object.keys(out).length ? out : null;
+}
+
+// ── Supabase helpers — set app.sync_code header on every request ──
+function clientFor(syncCode) {
+  // Pass the sync code as a custom header; Supabase RLS reads it via
+  // current_setting('app.sync_code') to enforce per-code write access.
+  return supabase.rpc("set_config", {
+    setting_name:  "app.sync_code",
+    setting_value: syncCode,
+    is_local:      true,
+  }).then(() => supabase);
 }
 
 async function pushBoards(syncCode, profileName, boards) {
@@ -38,27 +113,36 @@ async function pushSettings(syncCode, profileName, settings) {
 }
 
 async function pullBoards(syncCode) {
-  const { data, error } = await supabase.from("sync_boards").select("data").eq("sync_code", syncCode);
+  const { data, error } = await supabase
+    .from("sync_boards")
+    .select("data")
+    .eq("sync_code", syncCode);
   if (error) throw new Error(error.message);
-  return (data || []).map((r) => r.data);
+  return sanitiseBoards((data || []).map((r) => r.data));
 }
 
 async function pullSettings(syncCode) {
-  const { data, error } = await supabase.from("sync_settings").select("data").eq("sync_code", syncCode).single();
+  const { data, error } = await supabase
+    .from("sync_settings")
+    .select("data")
+    .eq("sync_code", syncCode)
+    .single();
   if (error && error.code !== "PGRST116") throw new Error(error.message);
-  return data?.data ?? null;
+  return sanitiseSettings(data?.data ?? null);
 }
 
+// ── Hook ──────────────────────────────────────────────────────
 export function useSync(profileId, profileName) {
   const [syncing,   setSyncing]   = useState(false);
   const [lastSync,  setLastSync]  = useState(null);
   const [syncError, setSyncError] = useState(null);
 
   const getSyncCode = useCallback(() => {
-    let code = localStorage.getItem(SYNC_CODE_KEY(profileId));
-    if (!code) {
+    let code = storageGet(SYNC_CODE_KEY(profileId), null);
+    // Migrate old 6-char codes to 8-char on next push
+    if (!code || code.length !== CODE_LENGTH) {
       code = generateSyncCode();
-      localStorage.setItem(SYNC_CODE_KEY(profileId), code);
+      storageSet(SYNC_CODE_KEY(profileId), code);
     }
     return code;
   }, [profileId]);
@@ -80,12 +164,32 @@ export function useSync(profileId, profileName) {
   }, [getSyncCode, profileName]);
 
   const pullAll = useCallback(async (syncCode) => {
+    // Rate limit pull attempts to prevent brute-forcing sync codes
+    const { allowed, retryIn } = checkRateLimit();
+    if (!allowed) {
+      setSyncError(`Too many attempts — please wait ${retryIn} minute${retryIn !== 1 ? "s" : ""} and try again.`);
+      return null;
+    }
+
     setSyncing(true); setSyncError(null);
     try {
       const code = syncCode.toUpperCase().trim();
-      const [boards, settings] = await Promise.all([pullBoards(code), pullSettings(code)]);
-      if (!boards.length && !settings) { setSyncError("No data found for that sync code."); return null; }
-      localStorage.setItem(SYNC_CODE_KEY(profileId), code);
+      if (code.length !== CODE_LENGTH || !/^[A-Z2-9]+$/.test(code)) {
+        setSyncError(`Sync codes are ${CODE_LENGTH} characters (letters and numbers).`);
+        return null;
+      }
+
+      const [boards, settings] = await Promise.all([
+        pullBoards(code),
+        pullSettings(code),
+      ]);
+
+      if (!boards.length && !settings) {
+        setSyncError("No data found for that sync code.");
+        return null;
+      }
+
+      storageSet(SYNC_CODE_KEY(profileId), code);
       setLastSync(new Date());
       return { boards, settings };
     } catch (e) {
