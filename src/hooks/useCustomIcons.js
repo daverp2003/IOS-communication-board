@@ -1,60 +1,50 @@
 import { useState, useCallback, useEffect } from "react";
-import { storageGet, storageSet } from "./useStorageHealth";
+import { idbGetIcons, idbSaveIcon, idbDeleteIcon } from "./useIndexedDB";
 
-function storageKey(profileId) {
-  return profileId ? `symbosay_custom_icons_${profileId}` : "symbosay_custom_icons";
-}
+export function useCustomIcons(profileId) {
+  const [icons,   setIcons]   = useState([]);
+  const [loading, setLoading] = useState(true);
 
-export function useCustomIcons(profileId, onStorageError) {
-  const [icons, setIcons] = useState(() => storageGet(storageKey(profileId), []));
-
+  // Load from IndexedDB whenever profile changes
   useEffect(() => {
-    setIcons(storageGet(storageKey(profileId), []));
+    if (!profileId) { setIcons([]); setLoading(false); return; }
+    setLoading(true);
+    idbGetIcons(profileId).then((loaded) => {
+      setIcons(loaded);
+      setLoading(false);
+    });
   }, [profileId]);
 
-  const persist = useCallback((next) => {
-    const result = storageSet(storageKey(profileId), next);
-    if (!result.ok && result.quota) {
-      onStorageError?.(
-        "Storage is full — this photo could not be saved. Delete some existing custom photos to free up space."
-      );
-    }
-    return result.ok;
-  }, [profileId, onStorageError]);
-
-  const addIcon = useCallback(({ label, dataUrl }) => {
+  const addIcon = useCallback(async ({ label, dataUrl }) => {
     const icon = {
-      id:     `custom_${Date.now()}`,
-      label:  label.trim(),
+      id:        `custom_${Date.now()}`,
+      profileId,
+      label:     label.trim(),
       dataUrl,
-      color:  "#6366F1",
-      emoji:  null,
-      custom: true,
+      color:     "#6366F1",
+      emoji:     null,
+      custom:    true,
     };
-    setIcons((prev) => {
-      const next = [...prev, icon];
-      const saved = persist(next);
-      // Roll back optimistic add if storage failed
-      return saved ? next : prev;
-    });
-    return icon;
-  }, [persist]);
+    const saved = await idbSaveIcon(icon);
+    if (saved) setIcons((prev) => [...prev, icon]);
+    return saved ? icon : null;
+  }, [profileId]);
 
-  const deleteIcon = useCallback((id) => {
+  const deleteIcon = useCallback(async (id) => {
+    await idbDeleteIcon(id);
+    setIcons((prev) => prev.filter((ic) => ic.id !== id));
+  }, []);
+
+  const renameIcon = useCallback(async (id, newLabel) => {
     setIcons((prev) => {
-      const next = prev.filter((ic) => ic.id !== id);
-      persist(next);
+      const next = prev.map((ic) =>
+        ic.id === id ? { ...ic, label: newLabel.trim() } : ic
+      );
+      const updated = next.find((ic) => ic.id === id);
+      if (updated) idbSaveIcon(updated);
       return next;
     });
-  }, [persist]);
+  }, []);
 
-  const renameIcon = useCallback((id, newLabel) => {
-    setIcons((prev) => {
-      const next = prev.map((ic) => ic.id === id ? { ...ic, label: newLabel.trim() } : ic);
-      persist(next);
-      return next;
-    });
-  }, [persist]);
-
-  return { icons, addIcon, deleteIcon, renameIcon };
+  return { icons, loading, addIcon, deleteIcon, renameIcon };
 }

@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { storageGet, storageSet, storageRemove } from "./useStorageHealth";
+import { idbDeleteProfileIcons } from "./useIndexedDB";
 
 const PROFILES_KEY = "symbosay_profiles";
 const ACTIVE_KEY   = "symbosay_active_profile";
@@ -56,9 +57,11 @@ export function useProfiles() {
   }, []);
 
   const deleteProfile = useCallback((id) => {
-    ["boards", "settings", "custom_icons", "sync_code"].forEach((s) =>
+    ["boards", "settings", "sync_code"].forEach((s) =>
       storageRemove(`symbosay_${s}_${id}`)
     );
+    // Clean up custom photos from IndexedDB
+    idbDeleteProfileIcons(id);
     setProfiles((prev) => {
       const next = prev.filter((p) => p.id !== id);
       saveProfiles(next);

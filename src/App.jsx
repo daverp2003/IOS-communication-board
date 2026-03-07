@@ -8,7 +8,7 @@ import { usePIN }              from "./hooks/usePIN";
 import { useProfiles }         from "./hooks/useProfiles";
 import { useSync }             from "./hooks/useSync";
 import { useStorageHealth, storageGet, storageSet } from "./hooks/useStorageHealth";
-import SymbolTile         from "./components/SymbolTile";
+import VirtualSymbolGrid  from "./components/VirtualSymbolGrid";
 import MessageBar         from "./components/MessageBar";
 import MyBoardsView       from "./components/MyBoardsView";
 import BuilderView        from "./components/BuilderView";
@@ -227,19 +227,23 @@ export default function App() {
         </div>
       )}
 
-      <div style={css.body}>
+      <div style={css.body} data-scroll-container>
         {view === "board" && (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, paddingTop: 10 }}>
+          <>
             {boardSymbols.length === 0 && searchQuery && (
               <div style={{ textAlign: "center", padding: 40, color: T.subtext, width: "100%" }}>
                 <div style={{ fontSize: 48 }}>🔍</div>
                 <p style={{ fontWeight: 700, marginTop: 12 }}>No symbols found</p>
               </div>
             )}
-            {boardSymbols.map((sym, i) => (
-              <SymbolTile key={`${sym.id}-${i}`} symbol={sym} sz={sz} T={T} theme={theme} onPress={() => handleTilePress(sym)} />
-            ))}
-          </div>
+            <VirtualSymbolGrid
+              symbols={boardSymbols}
+              sz={sz}
+              T={T}
+              theme={theme}
+              onPress={handleTilePress}
+            />
+          </>
         )}
 
         {view === "myboards" && (
