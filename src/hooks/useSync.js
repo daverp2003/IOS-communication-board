@@ -1,30 +1,12 @@
 import { useState, useCallback } from "react";
+import { createClient } from "@supabase/supabase-js";
 
-const SUPABASE_URL = "https://fgrfvoazrkutlmiqnmov.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZncmZ2b2F6cmt1dGxtaXFubW92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4ODkwNjgsImV4cCI6MjA4ODQ2NTA2OH0.lofg1sMtoeY-XIbtkUVb4pMcbUXmD8lnL-N3uYfwTT0";
+const supabase = createClient(
+  "https://fgrfvoazrkutlmiqnmov.supabase.co",
+  "sb_publishable_G0hnuM7wlY-g8puvx2oJ0w_jBRCh-XC"
+);
 
 const SYNC_CODE_KEY = (profileId) => `symbosay_sync_code_${profileId}`;
-
-// Pass apikey as URL param as well as header — handles both old and new Supabase
-async function sbFetch(path, options = {}) {
-  const separator = path.includes("?") ? "&" : "?";
-  const url = `${SUPABASE_URL}/rest/v1/${path}${separator}apikey=${SUPABASE_KEY}`;
-  const res = await fetch(url, {
-    headers: {
-      "Content-Type":  "application/json",
-      "Prefer":        "return=minimal",
-      "apikey":        SUPABASE_KEY,
-      "Authorization": `Bearer ${SUPABASE_KEY}`,
-      ...options.headers,
-    },
-    ...options,
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Supabase error ${res.status}: ${text}`);
-  }
-  return res.status === 204 ? null : res.json();
-}
 
 function generateSyncCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -32,7 +14,7 @@ function generateSyncCode() {
 }
 
 async function pushBoards(syncCode, profileName, boards) {
-  await sbFetch(`sync_boards?sync_code=eq.${syncCode}`, { method: "DELETE" });
+  await supabase.from("sync_boards").delete().eq("sync_code", syncCode);
   if (!boards.length) return;
   const rows = boards.map((b) => ({
     id:           `${syncCode}_${b.id}`,
@@ -41,34 +23,30 @@ async function pushBoards(syncCode, profileName, boards) {
     data:         b,
     updated_at:   new Date().toISOString(),
   }));
-  await sbFetch("sync_boards", {
-    method:  "POST",
-    body:    JSON.stringify(rows),
-    headers: { "Prefer": "resolution=merge-duplicates" },
-  });
+  const { error } = await supabase.from("sync_boards").upsert(rows);
+  if (error) throw new Error(error.message);
 }
 
 async function pushSettings(syncCode, profileName, settings) {
-  await sbFetch("sync_settings", {
-    method:  "POST",
-    body:    JSON.stringify({
-      sync_code:    syncCode,
-      profile_name: profileName,
-      data:         settings,
-      updated_at:   new Date().toISOString(),
-    }),
-    headers: { "Prefer": "resolution=merge-duplicates" },
+  const { error } = await supabase.from("sync_settings").upsert({
+    sync_code:    syncCode,
+    profile_name: profileName,
+    data:         settings,
+    updated_at:   new Date().toISOString(),
   });
+  if (error) throw new Error(error.message);
 }
 
 async function pullBoards(syncCode) {
-  const rows = await sbFetch(`sync_boards?sync_code=eq.${syncCode}&select=data`);
-  return (rows || []).map((r) => r.data);
+  const { data, error } = await supabase.from("sync_boards").select("data").eq("sync_code", syncCode);
+  if (error) throw new Error(error.message);
+  return (data || []).map((r) => r.data);
 }
 
 async function pullSettings(syncCode) {
-  const rows = await sbFetch(`sync_settings?sync_code=eq.${syncCode}&select=data`);
-  return rows?.[0]?.data ?? null;
+  const { data, error } = await supabase.from("sync_settings").select("data").eq("sync_code", syncCode).single();
+  if (error && error.code !== "PGRST116") throw new Error(error.message);
+  return data?.data ?? null;
 }
 
 export function useSync(profileId, profileName) {
@@ -86,8 +64,7 @@ export function useSync(profileId, profileName) {
   }, [profileId]);
 
   const pushAll = useCallback(async (boards, settings) => {
-    setSyncing(true);
-    setSyncError(null);
+    setSyncing(true); setSyncError(null);
     try {
       const code = getSyncCode();
       await Promise.all([
@@ -97,31 +74,22 @@ export function useSync(profileId, profileName) {
       setLastSync(new Date());
     } catch (e) {
       setSyncError(`Sync failed: ${e.message}`);
-      console.error("Sync push error:", e);
     } finally {
       setSyncing(false);
     }
   }, [getSyncCode, profileName]);
 
   const pullAll = useCallback(async (syncCode) => {
-    setSyncing(true);
-    setSyncError(null);
+    setSyncing(true); setSyncError(null);
     try {
       const code = syncCode.toUpperCase().trim();
-      const [boards, settings] = await Promise.all([
-        pullBoards(code),
-        pullSettings(code),
-      ]);
-      if (!boards.length && !settings) {
-        setSyncError("No data found for that sync code.");
-        return null;
-      }
+      const [boards, settings] = await Promise.all([pullBoards(code), pullSettings(code)]);
+      if (!boards.length && !settings) { setSyncError("No data found for that sync code."); return null; }
       localStorage.setItem(SYNC_CODE_KEY(profileId), code);
       setLastSync(new Date());
       return { boards, settings };
     } catch (e) {
       setSyncError(`Sync failed: ${e.message}`);
-      console.error("Sync pull error:", e);
       return null;
     } finally {
       setSyncing(false);
