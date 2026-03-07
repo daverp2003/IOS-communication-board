@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-export default function SettingsView({ tileSize, setTileSize, theme, setTheme, T, pin, sync, boards, settings, speech, onPullSuccess }) {
+export default function SettingsView({ tileSize, setTileSize, theme, setTheme, T, pin, sync, boards, settings, speech, onPullSuccess, lastLocalUpdate, conflictPending, setConflictPending, isOnline }) {
   const [tab, setTab] = useState("display");
 
   const tabStyle = (id) => ({
@@ -62,7 +62,7 @@ export default function SettingsView({ tileSize, setTileSize, theme, setTheme, T
       )}
 
       {tab === "pin"  && <PINSettings T={T} pin={pin} />}
-      {tab === "sync" && <SyncSettings T={T} sync={sync} boards={boards} settings={{ tileSize, theme }} onPullSuccess={onPullSuccess} />}
+      {tab === "sync" && <SyncSettings T={T} sync={sync} boards={boards} settings={{ tileSize, theme }} onPullSuccess={onPullSuccess} lastLocalUpdate={lastLocalUpdate} conflictPending={conflictPending} setConflictPending={setConflictPending} isOnline={isOnline} />}
     </div>
   );
 }
@@ -70,10 +70,11 @@ export default function SettingsView({ tileSize, setTileSize, theme, setTheme, T
 // ─────────────────────────────────────────────────────────────
 //  SyncSettings
 // ─────────────────────────────────────────────────────────────
-function SyncSettings({ T, sync, boards, settings, onPullSuccess }) {
-  const [pullCode,    setPullCode]    = useState("");
-  const [pullSuccess, setPullSuccess] = useState(false);
-  const [copied,      setCopied]      = useState(false);
+function SyncSettings({ T, sync, boards, settings, onPullSuccess, lastLocalUpdate, conflictPending, setConflictPending, isOnline }) {
+  const [pullCode,       setPullCode]       = useState("");
+  const [pullSuccess,    setPullSuccess]    = useState(false);
+  const [copied,         setCopied]         = useState(false);
+  const [pendingResult,  setPendingResult]  = useState(null); // holds data during conflict review
 
   const syncCode = sync.getSyncCode();
 
@@ -82,13 +83,32 @@ function SyncSettings({ T, sync, boards, settings, onPullSuccess }) {
   };
 
   const handlePull = async () => {
-    if (pullCode.length < 6) return;
+    if (pullCode.length < 8) return;
     const result = await sync.pullAll(pullCode);
-    if (result) {
+    if (!result) return;
+
+    // Conflict check — does remote have boards newer than our local data?
+    const hasConflict = await sync.checkConflict(lastLocalUpdate);
+    if (hasConflict && boards.length > 0) {
+      setPendingResult(result);
+      setConflictPending(true);
+    } else {
       onPullSuccess?.(result.boards, result.settings);
       setPullSuccess(true);
       setTimeout(() => setPullSuccess(false), 3000);
     }
+  };
+
+  const handleConflictMerge = () => {
+    if (pendingResult) onPullSuccess?.(pendingResult.boards, pendingResult.settings);
+    setPendingResult(null);
+    setPullSuccess(true);
+    setTimeout(() => setPullSuccess(false), 3000);
+  };
+
+  const handleConflictKeepLocal = () => {
+    setPendingResult(null);
+    setConflictPending(false);
   };
 
   const handleCopy = () => {
@@ -98,8 +118,8 @@ function SyncSettings({ T, sync, boards, settings, onPullSuccess }) {
     });
   };
 
-  const label   = { fontSize: 11, fontWeight: 700, color: T.subtext, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8, display: "block" };
-  const infoBox = (text) => (
+  const label      = { fontSize: 11, fontWeight: 700, color: T.subtext, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8, display: "block" };
+  const infoBox    = (text) => (
     <div style={{ fontSize: 13, color: T.subtext, lineHeight: 1.55, marginBottom: 16, background: `${T.border}44`, borderRadius: 10, padding: "10px 12px" }}>
       {text}
     </div>
@@ -113,7 +133,25 @@ function SyncSettings({ T, sync, boards, settings, onPullSuccess }) {
   return (
     <div>
       <span style={label}>☁️ Cloud Sync</span>
-      {infoBox("Sync your boards and settings across multiple iPads. Use your sync code on another device to pull your data.")}
+
+      {/* Offline notice */}
+      {!isOnline && (
+        <div style={{ background: "#1F2937", borderRadius: 10, padding: "10px 12px", marginBottom: 16 }}>
+          <span style={{ fontSize: 13, color: "#F9FAFB", fontWeight: 600 }}>
+            📡 You're offline — sync is unavailable right now.
+          </span>
+        </div>
+      )}
+
+      {/* Auto-sync status */}
+      {sync.lastSync && !sync.syncError && (
+        <div style={{ fontSize: 12, color: "#10B981", fontWeight: 600, marginBottom: 12, display: "flex", alignItems: "center", gap: 5 }}>
+          <span>✅</span>
+          <span>Auto-synced at {sync.lastSync.toLocaleTimeString()}</span>
+        </div>
+      )}
+
+      {infoBox("Boards auto-upload 30 seconds after any change. Use your sync code on another device to download your boards.")}
 
       {/* ── Your sync code ──────────────────────────────── */}
       <div style={{ marginBottom: 20 }}>
@@ -123,7 +161,7 @@ function SyncSettings({ T, sync, boards, settings, onPullSuccess }) {
             flex: 1, padding: "14px 16px", borderRadius: 12,
             border: `2px solid ${T.border}`,
             background: T.bg, color: T.text,
-            fontSize: 28, fontWeight: 900, letterSpacing: 8,
+            fontSize: 22, fontWeight: 900, letterSpacing: 6,
             textAlign: "center", fontFamily: "monospace",
           }}>
             {syncCode}
@@ -137,37 +175,49 @@ function SyncSettings({ T, sync, boards, settings, onPullSuccess }) {
         </div>
       </div>
 
-      {/* ── Push ────────────────────────────────────────── */}
+      {/* ── Manual push ─────────────────────────────────── */}
       <div style={{ marginBottom: 20 }}>
-        <span style={label}>Upload to Cloud</span>
-        <div style={{ fontSize: 13, color: T.subtext, marginBottom: 10 }}>
-          Push your current boards and settings to the cloud so another device can download them.
-        </div>
+        <span style={label}>Upload Now</span>
         <button
           onClick={handlePush}
-          disabled={sync.syncing}
-          style={{ ...primaryBtn(), width: "100%", padding: "12px 0", opacity: sync.syncing ? 0.6 : 1 }}
+          disabled={sync.syncing || !isOnline}
+          style={{ ...primaryBtn(), width: "100%", padding: "12px 0", opacity: (sync.syncing || !isOnline) ? 0.5 : 1 }}
         >
           {sync.syncing ? "⏳ Syncing…" : "⬆️ Upload Now"}
         </button>
-        {sync.lastSync && !sync.syncError && (
-          <div style={{ fontSize: 11, color: "#10B981", marginTop: 6, fontWeight: 600 }}>
-            ✅ Last synced: {sync.lastSync.toLocaleTimeString()}
-          </div>
-        )}
       </div>
+
+      {/* ── Conflict resolution ──────────────────────────── */}
+      {conflictPending && pendingResult && (
+        <div style={{
+          background: "#FFFBEB", border: "2px solid #FDE68A",
+          borderRadius: 12, padding: 16, marginBottom: 20,
+        }}>
+          <div style={{ fontWeight: 700, fontSize: 14, color: "#92400E", marginBottom: 8 }}>
+            ⚠️ Conflict detected
+          </div>
+          <div style={{ fontSize: 13, color: "#78350F", lineHeight: 1.5, marginBottom: 12 }}>
+            The downloaded data has boards that are newer than some of your local boards.
+            Merging will update your local boards with the newer remote versions while keeping anything that's newer locally.
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={handleConflictMerge}      style={{ ...primaryBtn("#10B981"), flex: 1 }}>Merge (recommended)</button>
+            <button onClick={handleConflictKeepLocal}  style={{ ...primaryBtn("#6B7280"), flex: 1 }}>Keep local only</button>
+          </div>
+        </div>
+      )}
 
       {/* ── Pull ────────────────────────────────────────── */}
       <div style={{ paddingTop: 16, borderTop: `1px solid ${T.border}` }}>
-        <span style={label}>Download from Cloud</span>
+        <span style={label}>Download from Another Device</span>
         <div style={{ fontSize: 13, color: T.subtext, marginBottom: 10 }}>
-          Enter a sync code from another device to download its boards and settings.
+          Enter the 8-character sync code from another device.
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <input
-            placeholder="Enter 6-char code"
+            placeholder="Enter 8-char code"
             value={pullCode}
-            onChange={(e) => setPullCode(e.target.value.toUpperCase().slice(0, 6))}
+            onChange={(e) => setPullCode(e.target.value.toUpperCase().slice(0, 8))}
             onKeyDown={(e) => e.key === "Enter" && handlePull()}
             style={{
               flex: 1, padding: "11px 14px", borderRadius: 12,
@@ -180,8 +230,8 @@ function SyncSettings({ T, sync, boards, settings, onPullSuccess }) {
           />
           <button
             onClick={handlePull}
-            disabled={sync.syncing || pullCode.length < 6}
-            style={{ ...primaryBtn(), padding: "11px 18px", opacity: (sync.syncing || pullCode.length < 6) ? 0.5 : 1 }}
+            disabled={sync.syncing || pullCode.length < 8 || !isOnline}
+            style={{ ...primaryBtn(), padding: "11px 18px", opacity: (sync.syncing || pullCode.length < 8 || !isOnline) ? 0.5 : 1 }}
           >
             ⬇️
           </button>
@@ -189,7 +239,7 @@ function SyncSettings({ T, sync, boards, settings, onPullSuccess }) {
 
         {pullSuccess && (
           <div style={{ fontSize: 13, color: "#10B981", marginTop: 8, fontWeight: 700 }}>
-            ✅ Data downloaded and applied successfully!
+            ✅ Data downloaded and applied!
           </div>
         )}
         {sync.syncError && (

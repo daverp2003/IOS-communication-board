@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { EMOJI_SYMBOLS, getAllSymbols } from "./constants/symbols";
 import { CATEGORIES, THEMES } from "./constants/config";
 import { useSpeech }           from "./hooks/useSpeech";
@@ -51,7 +51,25 @@ export default function App() {
   const sync = useSync(profileId, activeProfile?.name ?? "User");
   const speech = useSpeech();
   const { speaking, speak, stop } = speech;
-  const { boards, activeBoard, saveBoard, deleteBoard, loadBoard, clearActiveBoard } = useBoards(profileId, setStorageError);
+  const { boards, activeBoard, lastLocalUpdate, saveBoard, deleteBoard, loadBoard, clearActiveBoard } = useBoards(profileId, setStorageError);
+
+  // ── Auto-push — debounced 30s after any board change ───────
+  const autoPushTimer = useRef(null);
+  const autoPush = useCallback(() => {
+    if (!isOnline) return;
+    clearTimeout(autoPushTimer.current);
+    autoPushTimer.current = setTimeout(() => {
+      sync.pushAll(boards, { tileSize, themeId: theme });
+    }, 30_000);
+  }, [boards, tileSize, theme, isOnline, sync]);
+
+  useEffect(() => {
+    autoPush();
+    return () => clearTimeout(autoPushTimer.current);
+  }, [boards, autoPush]);
+
+  // ── Conflict detection state ────────────────────────────────
+  const [conflictPending, setConflictPending] = useState(false);
 
   // Restore saved message when profile changes
   useEffect(() => {
@@ -72,11 +90,20 @@ export default function App() {
 
   const T = THEMES[theme] ?? THEMES.light;
 
-  // Apply pulled sync data back to local state
+  // Apply pulled sync data — merge boards by updatedAt, don't just overwrite
   const handlePullSuccess = (pulledBoards, pulledSettings) => {
-    if (pulledBoards?.length) pulledBoards.forEach(saveBoard);
+    if (pulledBoards?.length) {
+      pulledBoards.forEach((remote) => {
+        const local = boards.find((b) => b.id === remote.id);
+        // Only apply if remote is newer or board doesn't exist locally
+        if (!local || !local.updatedAt || remote.updatedAt > local.updatedAt) {
+          saveBoard(remote);
+        }
+      });
+    }
     if (pulledSettings?.tileSize) updateSetting("tileSize", pulledSettings.tileSize);
-    if (pulledSettings?.themeId) updateSetting("themeId", pulledSettings.themeId);
+    if (pulledSettings?.themeId)  updateSetting("themeId",  pulledSettings.themeId);
+    setConflictPending(false);
   };
 
   const sz = {
@@ -299,6 +326,10 @@ export default function App() {
             boards={boards}
             settings={{ tileSize, theme }}
             onPullSuccess={handlePullSuccess}
+            lastLocalUpdate={lastLocalUpdate}
+            conflictPending={conflictPending}
+            setConflictPending={setConflictPending}
+            isOnline={isOnline}
           />
         )}
       </div>

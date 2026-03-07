@@ -51,9 +51,16 @@ export function useBoards(profileId, onStorageError) {
     if (activeBoard?.id === id) setActiveBoard(null);
   };
 
+  // Most recent updatedAt across all boards — used for conflict detection
+  const lastLocalUpdate = boards.reduce((latest, b) => {
+    if (!b.updatedAt) return latest;
+    return !latest || b.updatedAt > latest ? b.updatedAt : latest;
+  }, null);
+
   return {
     boards,
     activeBoard,
+    lastLocalUpdate,
     saveBoard,
     deleteBoard,
     loadBoard:        setActiveBoard,

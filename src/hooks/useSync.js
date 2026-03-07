@@ -122,6 +122,18 @@ async function pullSettings(syncCode) {
 }
 
 // ── Hook ──────────────────────────────────────────────────────
+
+/** Check the most recent updated_at on remote settings without pulling all data */
+async function getRemoteTimestamp(syncCode) {
+  const { data, error } = await supabase
+    .from("sync_settings")
+    .select("updated_at")
+    .eq("sync_code", syncCode)
+    .single();
+  if (error) return null;
+  return data?.updated_at ?? null;
+}
+
 export function useSync(profileId, profileName) {
   const [syncing,   setSyncing]   = useState(false);
   const [lastSync,  setLastSync]  = useState(null);
@@ -190,5 +202,19 @@ export function useSync(profileId, profileName) {
     }
   }, [profileId]);
 
-  return { getSyncCode, pushAll, pullAll, syncing, lastSync, syncError };
+  /** Check if remote has newer data than the local lastSyncedAt timestamp */
+  const checkConflict = useCallback(async (localLastSync) => {
+    try {
+      const code      = getSyncCode();
+      const remoteTs  = await getRemoteTimestamp(code);
+      if (!remoteTs) return false;
+      const remoteDate = new Date(remoteTs);
+      const localDate  = localLastSync ? new Date(localLastSync) : null;
+      return !localDate || remoteDate > localDate;
+    } catch {
+      return false;
+    }
+  }, [getSyncCode]);
+
+  return { getSyncCode, pushAll, pullAll, checkConflict, syncing, lastSync, syncError };
 }
