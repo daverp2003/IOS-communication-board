@@ -196,6 +196,19 @@ export default function BuilderView({ T, theme, initialBoard, onSave, onBack, pr
   const longPressTimer = useRef(null);
   const touchStartPos  = useRef(null);
 
+  // Non-passive touchstart on document: prevents iOS scroll container from
+  // claiming the gesture when the user touches a draggable tile.
+  // React onTouchStart is passive — cannot call preventDefault from it.
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.target.closest("[data-draggable]")) {
+        e.preventDefault();
+      }
+    };
+    document.addEventListener("touchstart", handler, { passive: false });
+    return () => document.removeEventListener("touchstart", handler);
+  }, []);
+
   const handleSymTouchStart = (sym, fromCell, e) => {
     clearTimeout(longPressTimer.current);
     const t = e.touches[0];
@@ -343,6 +356,7 @@ export default function BuilderView({ T, theme, initialBoard, onSave, onBack, pr
                     <>
                       <div
                         draggable
+                        data-draggable="true"
                         onDragStart={() => handleDragStart(sym, i)}
                         onDragEnd={handleDragEnd}
                         onTouchStart={(e) => handleSymTouchStart(sym, i, e)}
@@ -402,6 +416,7 @@ export default function BuilderView({ T, theme, initialBoard, onSave, onBack, pr
                   <div
                     key={sym.id}
                     draggable
+                    data-draggable="true"
                     onDragStart={() => handleDragStart(sym, undefined)}
                     onDragEnd={handleDragEnd}
                     onTouchStart={(e) => handleSymTouchStart(sym, undefined, e)}
@@ -440,6 +455,7 @@ export default function BuilderView({ T, theme, initialBoard, onSave, onBack, pr
                     <div key={icon.id} style={{ position: "relative", width: 64, flexShrink: 0 }}>
                       <div
                         draggable
+                        data-draggable="true"
                         onDragStart={() => handleDragStart(icon, undefined)}
                         onDragEnd={handleDragEnd}
                         onTouchStart={(e) => handleSymTouchStart(icon, undefined, e)}
