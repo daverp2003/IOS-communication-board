@@ -14,8 +14,8 @@ export default function MessageBar({ message, speaking, onSpeak, onBackspace, on
       <div style={{ flex: 1, display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
         {message.length === 0
           ? <span style={{ color: T.subtext, fontSize: 13, fontStyle: "italic" }}>Tap symbols to build a message…</span>
-          : message.map((s, i) => (
-            <span key={i} style={{
+          : message.map((s) => (
+            <span key={s._key} style={{
               background: "#6366F1", color: "#fff", borderRadius: 20,
               padding: "3px 10px", fontSize: 13, fontWeight: 700,
               display: "flex", alignItems: "center", gap: 4,

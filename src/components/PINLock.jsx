@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 /**
  * PINLock — full-screen PIN-pad overlay.
@@ -22,7 +22,13 @@ export default function PINLock({ T, onSuccess, onCancel, checkPIN }) {
   const text       = T.text       ?? "#1a1a2e";
   const border     = T.border     ?? "#e5e7eb";
 
-  const handleDigit = (d) => {    if (entered.length >= 4) return;
+  const handleBack = useCallback(() => {
+    setEntered((e) => e.slice(0, -1));
+    setError("");
+  }, []);
+
+  const handleDigit = useCallback((d) => {
+    if (entered.length >= 4) return;
     const next = entered + d;
     setEntered(next);
     setError("");
@@ -42,12 +48,7 @@ export default function PINLock({ T, onSuccess, onCancel, checkPIN }) {
         }
       }, 120);
     }
-  };
-
-  const handleBack = () => {
-    setEntered((e) => e.slice(0, -1));
-    setError("");
-  };
+  }, [entered, checkPIN, onSuccess]);
 
   // Physical keyboard support
   useEffect(() => {
@@ -57,7 +58,7 @@ export default function PINLock({ T, onSuccess, onCancel, checkPIN }) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  });
+  }, [handleDigit, handleBack]);
 
   const keys = ["1","2","3","4","5","6","7","8","9","","0","⌫"];
 

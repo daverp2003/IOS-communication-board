@@ -14,7 +14,6 @@ export default function VirtualSymbolGrid({
   symbols, sz, T, theme, onPress,
   // Accessibility
   focusedIndex,   // controlled from switch scanner (or null for keyboard mode)
-  onFocusedIndex, // callback when keyboard moves focus
 }) {
   const containerRef  = useRef(null);
   const [visibleRange, setVisibleRange] = useState({ start: 0, end: 40 });
@@ -86,8 +85,7 @@ export default function VirtualSymbolGrid({
 
     e.preventDefault();
     setKbIndex(next);
-    onFocusedIndex?.(next);
-  }, [kbIndex, cols, symbols, onPress, onFocusedIndex]);
+  }, [kbIndex, cols, symbols, onPress]);
 
   // Scroll focused tile into view
   useEffect(() => {

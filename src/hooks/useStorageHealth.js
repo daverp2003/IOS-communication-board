@@ -1,6 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
 
-const QUOTA_WARNING_BYTES = 6 * 1024 * 1024; // warn at 6 MB used
+// Warn at 3 MB ("low") and 4.5 MB ("full").
+// The standard localStorage quota on most browsers is 5–10 MB, so these
+// thresholds give users enough headroom to act before a write actually fails.
+// The previous values (6 MB / 9 MB) could never fire on 5 MB-capped devices.
+const QUOTA_WARNING_BYTES = 3 * 1024 * 1024;
 
 /**
  * Safe localStorage helpers — always wrapped in try/catch.

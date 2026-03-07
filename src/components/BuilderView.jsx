@@ -146,6 +146,7 @@ export default function BuilderView({ T, theme, initialBoard, onSave, onBack, pr
   const [cells, setCells]               = useState(initialBoard?.cells || {});
   const [history, setHistory]           = useState([initialBoard?.cells || {}]);
   const [historyIdx, setHistoryIdx]     = useState(0);
+  const MAX_HISTORY = 50;
   const [gridSize, setGridSize]         = useState(initialBoard?.gridSize || GRID_SIZES[2]);
   const [name, setName]                 = useState(initialBoard?.name || "");
   const [color, setColor]               = useState(initialBoard?.color || BOARD_COLORS[0]);
@@ -159,6 +160,7 @@ export default function BuilderView({ T, theme, initialBoard, onSave, onBack, pr
   const [uploadModal,   setUploadModal]   = useState(null);
   const [uploadLabel,   setUploadLabel]   = useState("");
   const [uploadError,   setUploadError]   = useState("");
+  const [fileError,     setFileError]     = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const fileInputRef = useRef(null);
 
@@ -174,10 +176,13 @@ export default function BuilderView({ T, theme, initialBoard, onSave, onBack, pr
     setCells((prev) => {
       const next = typeof updater === "function" ? updater(prev) : updater;
       setHistory((h) => {
-        const trimmed = h.slice(0, historyIdx + 1);
-        return [...trimmed, next];
+        // Trim any redo states beyond current position, then cap total depth
+        const trimmed = h.slice(0, historyIdx + 1).slice(-MAX_HISTORY);
+        const newHistory = [...trimmed, next];
+        // Update historyIdx to match the new array length (accounts for cap trimming)
+        setHistoryIdx(newHistory.length - 1);
+        return newHistory;
       });
-      setHistoryIdx((i) => i + 1);
       return next;
     });
   }, [historyIdx]);
@@ -307,8 +312,17 @@ export default function BuilderView({ T, theme, initialBoard, onSave, onBack, pr
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith("image/")) { alert("Please choose an image file."); return; }
-    if (file.size > 5 * 1024 * 1024)    { alert("Image must be under 5 MB."); return; }
+    if (!file.type.startsWith("image/")) {
+      setFileError("Please choose an image file.");
+      e.target.value = "";
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setFileError("Image must be under 5 MB.");
+      e.target.value = "";
+      return;
+    }
+    setFileError("");
     const reader = new FileReader();
     reader.onload = (ev) => { setUploadModal({ dataUrl: ev.target.result }); setUploadLabel(""); setUploadError(""); };
     reader.readAsDataURL(file);
@@ -496,11 +510,16 @@ export default function BuilderView({ T, theme, initialBoard, onSave, onBack, pr
             <div style={{ display: "flex", flexDirection: "column", flex: 1, overflow: "hidden" }}>
               <input ref={fileInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleFileChange} />
               <button
-                onClick={() => fileInputRef.current?.click()}
-                style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "9px 14px", marginBottom: 10, background: "linear-gradient(135deg,#6366F1,#8B5CF6)", color: "#fff", border: "none", borderRadius: 12, fontWeight: 800, fontSize: 13, cursor: "pointer", fontFamily: "inherit", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
+                onClick={() => { setFileError(""); fileInputRef.current?.click(); }}
+                style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "9px 14px", marginBottom: fileError ? 6 : 10, background: "linear-gradient(135deg,#6366F1,#8B5CF6)", color: "#fff", border: "none", borderRadius: 12, fontWeight: 800, fontSize: 13, cursor: "pointer", fontFamily: "inherit", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
               >
                 📷 Upload Photo
               </button>
+              {fileError && (
+                <p style={{ fontSize: 12, color: "#EF4444", fontWeight: 600, marginBottom: 10, paddingLeft: 2 }}>
+                  ⚠️ {fileError}
+                </p>
+              )}
               {customIcons.length === 0 ? (
                 <div style={{ textAlign: "center", padding: "24px 12px", color: T.subtext }}>
                   <div style={{ fontSize: 36, marginBottom: 8 }}>🖼️</div>

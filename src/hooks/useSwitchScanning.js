@@ -49,10 +49,12 @@ export function useSwitchScanning({ itemCount, onSelect, enabled = false }) {
     return stopScan;
   }, [scanEnabled, itemCount, startScan, stopScan]);
 
-  // Restart when interval changes
+  // Restart when interval changes — scanEnabled is intentionally excluded from
+  // deps here: toggling enabled is handled by the effect above. Including it
+  // would cause both effects to run on the same render, double-starting the timer.
   useEffect(() => {
     if (scanEnabled) startScan();
-  }, [scanInterval, scanEnabled, startScan]);
+  }, [scanInterval, startScan]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Switch press — Space or Enter activates current tile
   useEffect(() => {

@@ -41,6 +41,10 @@ export default function App() {
   const [editingBoard, setEditingBoard]     = useState(null);
   const [pinModalFor, setPinModalFor]       = useState(null);
 
+  // Stable counter for message item keys — avoids index-as-key issues when
+  // items are removed from anywhere other than the end of the array.
+  const msgCounter = useRef(0);
+
   // Persisted settings (theme + tileSize survive page refresh)
   const { settings, updateSetting } = useSettings(profileId);
   const theme    = settings.themeId;
@@ -50,7 +54,7 @@ export default function App() {
 
   const pin  = usePIN();
   const sync = useSync(profileId, activeProfile?.name ?? "User");
-  const speech = useSpeech();
+  const speech = useSpeech(settings.voiceId, (name) => updateSetting("voiceId", name));
   const { speaking, speak, stop } = speech;
   const { boards, activeBoard, lastLocalUpdate, saveBoard, deleteBoard, loadBoard, clearActiveBoard } = useBoards(profileId, setStorageError);
 
@@ -124,7 +128,7 @@ export default function App() {
       : EMOJI_SYMBOLS[activeCategory] || [];
 
   const handleTilePress = (symbol) => {
-    setMessage((prev) => [...prev, symbol]);
+    setMessage((prev) => [...prev, { ...symbol, _key: ++msgCounter.current }]);
     speak(symbol.label);
   };
 

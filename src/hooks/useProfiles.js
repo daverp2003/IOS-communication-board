@@ -56,12 +56,17 @@ export function useProfiles() {
     return profile;
   }, []);
 
-  const deleteProfile = useCallback((id) => {
+  const deleteProfile = useCallback(async (id) => {
     ["boards", "settings", "sync_code"].forEach((s) =>
       storageRemove(`symbosay_${s}_${id}`)
     );
-    // Clean up custom photos from IndexedDB
-    idbDeleteProfileIcons(id);
+    // Await IDB deletion so that a failure surface as an error rather than
+    // silently leaving orphaned photos consuming storage.
+    try {
+      await idbDeleteProfileIcons(id);
+    } catch (e) {
+      console.error("Failed to delete custom icons for profile", id, e);
+    }
     setProfiles((prev) => {
       const next = prev.filter((p) => p.id !== id);
       saveProfiles(next);

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, Fragment } from "react";
 
 export default function SettingsView({ tileSize, setTileSize, theme, setTheme, T, pin, sync, boards, settings, speech, onPullSuccess, lastLocalUpdate, conflictPending, setConflictPending, isOnline, scanEnabled, setScanEnabled, scanInterval, setScanInterval }) {
   const [tab, setTab] = useState("display");
@@ -84,6 +84,15 @@ function SyncSettings({ T, sync, boards, settings, onPullSuccess, lastLocalUpdat
     await sync.pushAll(boards, settings);
   };
 
+  const handleMigrateLegacy = async () => {
+    const result = await sync.migrateLegacy();
+    if (result) {
+      onPullSuccess?.(result.boards, result.settings);
+      setPullSuccess(true);
+      setTimeout(() => setPullSuccess(false), 3000);
+    }
+  };
+
   const handlePull = async () => {
     if (pullCode.length < 8) return;
     const result = await sync.pullAll(pullCode);
@@ -142,6 +151,29 @@ function SyncSettings({ T, sync, boards, settings, onPullSuccess, lastLocalUpdat
           <span style={{ fontSize: 13, color: "#F9FAFB", fontWeight: 600 }}>
             📡 You're offline — sync is unavailable right now.
           </span>
+        </div>
+      )}
+
+      {/* Legacy sync code migration notice */}
+      {sync.hasLegacyMigration && (
+        <div style={{
+          background: "#FFFBEB", border: "2px solid #FDE68A",
+          borderRadius: 12, padding: 16, marginBottom: 20,
+        }}>
+          <div style={{ fontWeight: 700, fontSize: 14, color: "#92400E", marginBottom: 6 }}>
+            🔄 Sync code upgraded
+          </div>
+          <div style={{ fontSize: 13, color: "#78350F", lineHeight: 1.5, marginBottom: 12 }}>
+            Your sync code has been upgraded from 6 to 8 characters for better security.
+            You may have boards stored under your old code — tap below to import them.
+          </div>
+          <button
+            onClick={handleMigrateLegacy}
+            disabled={sync.syncing || !isOnline}
+            style={{ ...primaryBtn(), opacity: (sync.syncing || !isOnline) ? 0.5 : 1 }}
+          >
+            {sync.syncing ? "⏳ Importing…" : "⬇️ Import from old code"}
+          </button>
         </div>
       )}
 
@@ -503,10 +535,10 @@ function AccessSettings({ T, scanEnabled, setScanEnabled, scanInterval, setScanI
         {infoBox("On the symbol board: use Arrow keys to move between tiles, Enter or Space to select. PIN screen supports number keys and Backspace.")}
         <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "6px 14px", fontSize: 13 }}>
           {[["↑↓←→", "Move between tiles"], ["Enter / Space", "Select tile or activate scan switch"], ["Ctrl+Z", "Undo last change in builder"], ["Ctrl+Y", "Redo in builder"]].map(([k, v]) => (
-            <>
-              <span key={k} style={{ fontFamily: "monospace", background: T.bg, border: `1px solid ${T.border}`, borderRadius: 6, padding: "2px 6px", fontWeight: 700, color: T.text, whiteSpace: "nowrap", alignSelf: "start" }}>{k}</span>
-              <span key={v} style={{ color: T.subtext, alignSelf: "center" }}>{v}</span>
-            </>
+            <Fragment key={k}>
+              <span style={{ fontFamily: "monospace", background: T.bg, border: `1px solid ${T.border}`, borderRadius: 6, padding: "2px 6px", fontWeight: 700, color: T.text, whiteSpace: "nowrap", alignSelf: "start" }}>{k}</span>
+              <span style={{ color: T.subtext, alignSelf: "center" }}>{v}</span>
+            </Fragment>
           ))}
         </div>
       </div>

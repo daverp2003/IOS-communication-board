@@ -1,6 +1,10 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 
 // ── iOS resume workaround ─────────────────────────────────────
+// These are intentional module-level singletons: the app only ever mounts one
+// useSpeech instance, and the timer must survive re-renders without being
+// recreated. If SSR or multi-root architectures are ever introduced, move these
+// into a module-level WeakMap keyed by a hook instance ID.
 let resumeInterval = null;
 function startResumeTimer() {
   stopResumeTimer();
@@ -62,7 +66,14 @@ function pickVoice(allVoices, preferredName) {
 }
 
 // ── Hook ──────────────────────────────────────────────────────
-export function useSpeech() {
+/**
+ * @param {string|null} preferredVoiceName  — persisted device voice name from
+ *   settings.voiceId (e.g. "Samantha"). Passed to pickVoice on first load so
+ *   the user's chosen voice survives page reloads.
+ * @param {(name: string) => void} onVoiceSelect — called when the user picks a
+ *   voice; consumer should persist the name via updateSetting("voiceId", name).
+ */
+export function useSpeech(preferredVoiceName = null, onVoiceSelect = null) {
   const [speaking,   setSpeaking]   = useState(false);
   const [voices,     setVoices]     = useState([]);
   const [voiceReady, setVoiceReady] = useState(false);
@@ -73,12 +84,14 @@ export function useSpeech() {
       const englishVoices = v.filter((sv) => sv.lang.startsWith("en"));
       const list = englishVoices.length ? englishVoices : v;
       setVoices(list);
+      // Use the persisted preferred voice name on first load so the voice
+      // survives page reloads. Falls back to best available English voice.
       if (!selectedVoiceRef.current) {
-        selectedVoiceRef.current = pickVoice(list, null);
+        selectedVoiceRef.current = pickVoice(list, preferredVoiceName);
       }
       setVoiceReady(true);
     });
-  }, []);
+  }, [preferredVoiceName]);
 
   // Load on mount
   useEffect(() => {
@@ -101,7 +114,9 @@ export function useSpeech() {
 
   const setVoiceByName = useCallback((name) => {
     selectedVoiceRef.current = voices.find((v) => v.name === name) || voices[0] || null;
-  }, [voices]);
+    // Persist so the choice survives reloads (consumer handles storage)
+    onVoiceSelect?.(name);
+  }, [voices, onVoiceSelect]);
 
   const speak = useCallback((text, options = {}) => {
     if (!window.speechSynthesis || !text) return;

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { EMOJI_SYMBOLS } from "../constants/symbols";
 import { DEFAULT_BOARDS } from "../constants/config";
 import { storageGet, storageSet } from "./useStorageHealth";
@@ -51,11 +51,15 @@ export function useBoards(profileId, onStorageError) {
     if (activeBoard?.id === id) setActiveBoard(null);
   };
 
-  // Most recent updatedAt across all boards — used for conflict detection
-  const lastLocalUpdate = boards.reduce((latest, b) => {
-    if (!b.updatedAt) return latest;
-    return !latest || b.updatedAt > latest ? b.updatedAt : latest;
-  }, null);
+  // Most recent updatedAt across all boards — used for conflict detection.
+  // Memoised so the reduce only reruns when boards actually change, not on
+  // every render of every component that reads from this hook.
+  const lastLocalUpdate = useMemo(() =>
+    boards.reduce((latest, b) => {
+      if (!b.updatedAt) return latest;
+      return !latest || b.updatedAt > latest ? b.updatedAt : latest;
+    }, null),
+  [boards]);
 
   return {
     boards,
