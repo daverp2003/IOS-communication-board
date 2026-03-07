@@ -76,12 +76,12 @@ export default function App() {
   };
 
   const css = {
-    app:       { fontFamily: "'Nunito', sans-serif", background: T.bg, minHeight: "100dvh", maxWidth: 900, margin: "0 auto", display: "flex", flexDirection: "column" },
+    app:       { fontFamily: "'Nunito', sans-serif", background: T.bg, minHeight: "100dvh", width: "100%", display: "flex", flexDirection: "column" },
     header:    { background: T.panel, padding: "12px 14px 0", boxShadow: `0 2px 20px ${T.shadow}`, position: "sticky", top: 0, zIndex: 100 },
     topBar:    { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 },
     appTitle:  { fontWeight: 900, fontSize: 18, color: "#6366F1", letterSpacing: "-0.01em" },
     body:      { flex: 1, padding: "12px 12px 90px", overflowY: "auto" },
-    bottomNav: { position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "100%", maxWidth: 900, background: T.panel, borderTop: `1px solid ${T.border}`, display: "flex", padding: "8px 8px 12px", gap: 4, zIndex: 200, boxShadow: `0 -4px 20px ${T.shadow}` },
+    bottomNav: { position: "fixed", bottom: 0, left: 0, width: "100%", background: T.panel, borderTop: `1px solid ${T.border}`, display: "flex", padding: "8px 8px 12px", gap: 4, zIndex: 200, boxShadow: `0 -4px 20px ${T.shadow}` },
     navBtn:    (on) => ({ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3, background: "none", border: "none", cursor: "pointer", padding: "6px 0", borderRadius: 10, color: on ? "#6366F1" : T.subtext, fontFamily: "inherit" }),
     searchRow: { display: "flex", alignItems: "center", gap: 8, background: T.bg, border: `2px solid ${T.border}`, borderRadius: 12, padding: "7px 12px", marginBottom: 10 },
     input:     { border: "none", background: "none", outline: "none", flex: 1, fontSize: 14, color: T.text, fontFamily: "inherit" },
