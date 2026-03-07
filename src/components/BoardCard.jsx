@@ -1,4 +1,4 @@
-export default function BoardCard({ board, T, onLoad, onEdit, onDelete }) {
+export default function BoardCard({ board, T, onLoad, onEdit, onDelete, onShare, sharing }) {
   const previewSymbols = Object.values(board.cells).slice(0, 6);
 
   return (
@@ -44,7 +44,15 @@ export default function BoardCard({ board, T, onLoad, onEdit, onDelete }) {
           Open
         </button>
         <button onClick={onEdit} style={{ flex: 1, background: T.bg, color: T.text, border: `1px solid ${T.border}`, borderRadius: 10, padding: "8px 0", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
-          ✏️ Edit
+          ✏️
+        </button>
+        <button
+          onClick={onShare}
+          disabled={sharing}
+          title="Share this board"
+          style={{ background: "#EEF2FF", color: "#6366F1", border: "1px solid #C7D2FE", borderRadius: 10, padding: "8px 10px", fontSize: 13, cursor: sharing ? "default" : "pointer", opacity: sharing ? 0.5 : 1 }}
+        >
+          🔗
         </button>
         <button onClick={onDelete} style={{ background: "#FEF2F2", color: "#EF4444", border: "1px solid #FCA5A5", borderRadius: 10, padding: "8px 10px", fontSize: 13, cursor: "pointer" }}>
           🗑️

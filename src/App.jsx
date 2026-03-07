@@ -10,6 +10,9 @@ import { useSync }             from "./hooks/useSync";
 import { useStorageHealth, storageGet, storageSet } from "./hooks/useStorageHealth";
 import { useOnlineStatus }    from "./hooks/useOnlineStatus";
 import { useSwitchScanning }  from "./hooks/useSwitchScanning";
+import { useAnalytics }       from "./hooks/useAnalytics";
+import { useBoardShare }      from "./hooks/useBoardShare";
+import { useSymbolRequests }  from "./hooks/useSymbolRequests";
 import VirtualSymbolGrid  from "./components/VirtualSymbolGrid";
 import MessageBar         from "./components/MessageBar";
 import MyBoardsView       from "./components/MyBoardsView";
@@ -57,6 +60,11 @@ export default function App() {
   const speech = useSpeech(settings.voiceId, (name) => updateSetting("voiceId", name));
   const { speaking, speak, stop } = speech;
   const { boards, activeBoard, lastLocalUpdate, saveBoard, deleteBoard, loadBoard, clearActiveBoard } = useBoards(profileId, setStorageError);
+
+  // ── New feature hooks ──────────────────────────────────────
+  const analytics      = useAnalytics(profileId);
+  const boardShare     = useBoardShare();
+  const symbolRequests = useSymbolRequests(profileId, activeProfile?.name ?? "User");
 
   // ── Auto-push — debounced 30s after any board change ───────
   const autoPushTimer = useRef(null);
@@ -125,11 +133,14 @@ export default function App() {
     ? searchResults
     : activeBoard
       ? Object.values(activeBoard.cells)
-      : EMOJI_SYMBOLS[activeCategory] || [];
+      : activeCategory === "most_used"
+        ? analytics.getTopSymbols(20)
+        : EMOJI_SYMBOLS[activeCategory] || [];
 
   const handleTilePress = (symbol) => {
     setMessage((prev) => [...prev, { ...symbol, _key: ++msgCounter.current }]);
     speak(symbol.label);
+    analytics.trackSymbol(symbol);
   };
 
   // Switch scanning
@@ -321,6 +332,9 @@ export default function App() {
             onEdit={(board) => navigateTo("builder", board)}
             onDelete={deleteBoard}
             onNewBoard={() => navigateTo("builder", null)}
+            boardShare={boardShare}
+            onImportBoard={saveBoard}
+            profileName={activeProfile?.name ?? "User"}
           />
         )}
 
@@ -337,6 +351,7 @@ export default function App() {
             pin={pin}
             sync={sync}
             boards={boards}
+            saveBoard={saveBoard}
             settings={{ tileSize, theme }}
             onPullSuccess={handlePullSuccess}
             lastLocalUpdate={lastLocalUpdate}
@@ -347,6 +362,8 @@ export default function App() {
             setScanEnabled={setScanEnabled}
             scanInterval={scanInterval}
             setScanInterval={setScanInterval}
+            analytics={analytics}
+            symbolRequests={symbolRequests}
           />
         )}
       </div>

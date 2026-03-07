@@ -1,6 +1,6 @@
 import { useState, Fragment } from "react";
 
-export default function SettingsView({ tileSize, setTileSize, theme, setTheme, T, pin, sync, boards, settings, speech, onPullSuccess, lastLocalUpdate, conflictPending, setConflictPending, isOnline, scanEnabled, setScanEnabled, scanInterval, setScanInterval }) {
+export default function SettingsView({ tileSize, setTileSize, theme, setTheme, T, pin, sync, boards, saveBoard, settings, speech, onPullSuccess, lastLocalUpdate, conflictPending, setConflictPending, isOnline, scanEnabled, setScanEnabled, scanInterval, setScanInterval, analytics, symbolRequests }) {
   const [tab, setTab] = useState("display");
 
   const tabStyle = (id) => ({
@@ -23,6 +23,9 @@ export default function SettingsView({ tileSize, setTileSize, theme, setTheme, T
         <button style={tabStyle("pin")}     onClick={() => setTab("pin")}>🔒 PIN Lock</button>
         <button style={tabStyle("sync")}    onClick={() => setTab("sync")}>☁️ Sync</button>
         <button style={tabStyle("access")}  onClick={() => setTab("access")}>♿ Access</button>
+        <button style={tabStyle("analytics")} onClick={() => setTab("analytics")}>📊 Usage</button>
+        <button style={tabStyle("data")}    onClick={() => setTab("data")}>💾 Data</button>
+        <button style={tabStyle("requests")} onClick={() => setTab("requests")}>💬 Requests</button>
       </div>
 
       {tab === "display" && (
@@ -65,6 +68,9 @@ export default function SettingsView({ tileSize, setTileSize, theme, setTheme, T
       {tab === "pin"    && <PINSettings T={T} pin={pin} />}
       {tab === "sync"   && <SyncSettings T={T} sync={sync} boards={boards} settings={{ tileSize, theme }} onPullSuccess={onPullSuccess} lastLocalUpdate={lastLocalUpdate} conflictPending={conflictPending} setConflictPending={setConflictPending} isOnline={isOnline} />}
       {tab === "access" && <AccessSettings T={T} scanEnabled={scanEnabled} setScanEnabled={setScanEnabled} scanInterval={scanInterval} setScanInterval={setScanInterval} />}
+      {tab === "analytics" && <AnalyticsSettings T={T} analytics={analytics} />}
+      {tab === "data"      && <DataSettings T={T} boards={boards} saveBoard={saveBoard} />}
+      {tab === "requests"  && <RequestsSettings T={T} symbolRequests={symbolRequests} />}
     </div>
   );
 }
@@ -542,6 +548,335 @@ function AccessSettings({ T, scanEnabled, setScanEnabled, scanInterval, setScanI
           ))}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+//  AnalyticsSettings
+// ─────────────────────────────────────────────────────────────
+function AnalyticsSettings({ T, analytics }) {
+  const [confirmClear, setConfirmClear] = useState(false);
+  const data     = analytics?.getAnalyticsData()  ?? {};
+  const total    = analytics?.getTotalTaps()       ?? 0;
+  const topItems = Object.values(data)
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 30);
+
+  const maxCount = topItems[0]?.count || 1;
+
+  const handleClear = () => {
+    analytics?.clearAnalytics();
+    setConfirmClear(false);
+  };
+
+  if (topItems.length === 0) {
+    return (
+      <div style={{ textAlign: "center", padding: "32px 16px", color: T.subtext }}>
+        <div style={{ fontSize: 48, marginBottom: 10 }}>📊</div>
+        <p style={{ fontWeight: 700, fontSize: 15, color: T.text }}>No usage data yet</p>
+        <p style={{ fontSize: 13, marginTop: 6 }}>Start using the board — your most-tapped symbols will appear here.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+        <div>
+          <span style={{ fontSize: 11, fontWeight: 700, color: T.subtext, textTransform: "uppercase", letterSpacing: "0.06em" }}>Symbol Usage</span>
+          <div style={{ fontSize: 12, color: T.subtext, marginTop: 2 }}>{total.toLocaleString()} total taps</div>
+        </div>
+        <button onClick={() => setConfirmClear(true)} style={{ fontSize: 12, color: "#EF4444", background: "#FEF2F2", border: "1px solid #FCA5A5", borderRadius: 8, padding: "5px 10px", cursor: "pointer", fontFamily: "inherit", fontWeight: 700 }}>
+          Clear
+        </button>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {topItems.map((item, idx) => (
+          <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 11, color: T.subtext, width: 18, textAlign: "right", fontWeight: 700 }}>{idx + 1}</span>
+            <span style={{ fontSize: 22, width: 30, textAlign: "center" }}>{item.emoji}</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: T.text }}>{item.label}</span>
+                <span style={{ fontSize: 12, fontWeight: 800, color: "#6366F1" }}>{item.count}</span>
+              </div>
+              <div style={{ height: 6, background: T.border, borderRadius: 3, overflow: "hidden" }}>
+                <div style={{ height: "100%", width: `${(item.count / maxCount) * 100}%`, background: "linear-gradient(90deg,#6366F1,#8B5CF6)", borderRadius: 3, transition: "width 0.4s ease" }} />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {confirmClear && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999 }}>
+          <div style={{ background: T.panel, borderRadius: 18, padding: "24px 22px", width: 300, maxWidth: "90vw", boxShadow: "0 16px 48px rgba(0,0,0,0.35)", border: `1px solid ${T.border}` }}>
+            <div style={{ fontWeight: 900, fontSize: 16, marginBottom: 8 }}>Clear usage data?</div>
+            <p style={{ fontSize: 13, color: T.subtext, marginBottom: 18 }}>This will erase all tap counts for this profile. The "Most Used" board will be empty until you start tapping again.</p>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={handleClear} style={{ flex: 1, padding: "10px 0", background: "#EF4444", color: "#fff", border: "none", borderRadius: 10, fontWeight: 800, fontSize: 14, cursor: "pointer", fontFamily: "inherit" }}>Clear</button>
+              <button onClick={() => setConfirmClear(false)} style={{ flex: 1, padding: "10px 0", background: "transparent", border: `1px solid ${T.border}`, borderRadius: 10, fontWeight: 600, fontSize: 14, cursor: "pointer", fontFamily: "inherit", color: T.subtext }}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+//  DataSettings — Export / Import
+// ─────────────────────────────────────────────────────────────
+function DataSettings({ T, boards, saveBoard }) {
+  const [importError,   setImportError]   = useState("");
+  const [importSuccess, setImportSuccess] = useState("");
+  const [importedBoards, setImportedBoards] = useState(null);
+
+  // ── Export ──────────────────────────────────────────────────
+  const handleExport = () => {
+    const payload = {
+      version:    1,
+      exportedAt: new Date().toISOString(),
+      boards,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    a.href     = url;
+    a.download = `symbosay-boards-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // ── Import ──────────────────────────────────────────────────
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImportError("");
+    setImportSuccess("");
+    setImportedBoards(null);
+
+    if (!file.name.endsWith(".json")) {
+      setImportError("Please choose a .json file exported from SymboSay.");
+      e.target.value = "";
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        if (!data.boards || !Array.isArray(data.boards)) throw new Error("No boards found in file.");
+        if (data.version !== 1) throw new Error("Unrecognised file format.");
+        const valid = data.boards.filter(
+          (b) => b && typeof b.id === "string" && typeof b.name === "string" && b.cells !== undefined
+        );
+        if (!valid.length) throw new Error("File contains no valid boards.");
+        setImportedBoards(valid);
+      } catch (err) {
+        setImportError(`Invalid file: ${err.message}`);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  };
+
+  const handleConfirmImport = () => {
+    if (!importedBoards) return;
+    importedBoards.forEach((b) => saveBoard({ ...b, updatedAt: new Date().toISOString() }));
+    setImportSuccess(`${importedBoards.length} board${importedBoards.length !== 1 ? "s" : ""} imported.`);
+    setImportedBoards(null);
+  };
+
+  const sectionLabel = { fontSize: 11, fontWeight: 700, color: T.subtext, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8, display: "block" };
+  const card = { background: T.bg, borderRadius: 12, padding: 14, border: `1px solid ${T.border}`, marginBottom: 16 };
+
+  return (
+    <div>
+      {/* Export */}
+      <div style={card}>
+        <span style={sectionLabel}>Export boards</span>
+        <p style={{ fontSize: 13, color: T.subtext, marginBottom: 10, lineHeight: 1.5 }}>
+          Save all your custom boards to a JSON file. Use this to back up before a device wipe, or to transfer boards to another app installation.
+        </p>
+        <button
+          onClick={handleExport}
+          disabled={!boards.length}
+          style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 16px", background: "linear-gradient(135deg,#6366F1,#8B5CF6)", color: "#fff", border: "none", borderRadius: 10, fontWeight: 800, fontSize: 13, cursor: boards.length ? "pointer" : "default", opacity: boards.length ? 1 : 0.45, fontFamily: "inherit" }}
+        >
+          ⬇️ Export {boards.length} board{boards.length !== 1 ? "s" : ""}
+        </button>
+      </div>
+
+      {/* Import */}
+      <div style={card}>
+        <span style={sectionLabel}>Import boards</span>
+        <p style={{ fontSize: 13, color: T.subtext, marginBottom: 10, lineHeight: 1.5 }}>
+          Restore boards from a previously exported SymboSay JSON file. Existing boards are not overwritten — imported boards are added alongside them.
+        </p>
+        <label style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 16px", background: T.panel, color: T.text, border: `2px solid ${T.border}`, borderRadius: 10, fontWeight: 800, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>
+          📂 Choose file
+          <input type="file" accept=".json" style={{ display: "none" }} onChange={handleFileChange} />
+        </label>
+
+        {importError && (
+          <p style={{ fontSize: 12, color: "#EF4444", marginTop: 8, fontWeight: 600 }}>⚠️ {importError}</p>
+        )}
+        {importSuccess && (
+          <p style={{ fontSize: 12, color: "#10B981", marginTop: 8, fontWeight: 600 }}>✅ {importSuccess}</p>
+        )}
+
+        {importedBoards && (
+          <ImportConfirmBanner T={T} boards={importedBoards} onConfirm={handleConfirmImport} onCancel={() => setImportedBoards(null)} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ImportConfirmBanner({ T, boards, onConfirm, onCancel }) {
+  return (
+    <div style={{ marginTop: 12, background: "#ECFDF5", border: "2px solid #6EE7B7", borderRadius: 10, padding: 12 }}>
+      <div style={{ fontWeight: 700, fontSize: 13, color: "#065F46", marginBottom: 6 }}>
+        Ready to import {boards.length} board{boards.length !== 1 ? "s" : ""}:
+      </div>
+      <ul style={{ margin: "0 0 10px 14px", padding: 0, fontSize: 12, color: "#047857", lineHeight: 1.8 }}>
+        {boards.slice(0, 5).map((b) => <li key={b.id}>{b.emoji} {b.name} ({Object.keys(b.cells).length} symbols)</li>)}
+        {boards.length > 5 && <li>…and {boards.length - 5} more</li>}
+      </ul>
+      <div style={{ display: "flex", gap: 8 }}>
+        <button onClick={onConfirm} style={{ padding: "8px 14px", background: "#10B981", color: "#fff", border: "none", borderRadius: 8, fontWeight: 800, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
+          ✅ Import all
+        </button>
+        <button onClick={onCancel} style={{ padding: "8px 14px", background: "transparent", border: "1px solid #6EE7B7", borderRadius: 8, fontWeight: 600, fontSize: 12, cursor: "pointer", fontFamily: "inherit", color: "#047857" }}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+//  RequestsSettings — Symbol request flow
+// ─────────────────────────────────────────────────────────────
+function RequestsSettings({ T, symbolRequests }) {
+  const [label,    setLabel]    = useState("");
+  const [emoji,    setEmoji]    = useState("");
+  const [context,  setContext]  = useState("");
+  const [labelErr, setLabelErr] = useState("");
+
+  const requests = symbolRequests?.getLocalRequests() ?? [];
+
+  const handleSubmit = async () => {
+    if (!label.trim()) { setLabelErr("Please enter a symbol name."); return; }
+    setLabelErr("");
+    const ok = await symbolRequests.submitRequest({ label, emojiSuggestion: emoji, context });
+    if (ok || symbolRequests.submitError) {
+      setLabel(""); setEmoji(""); setContext("");
+    }
+  };
+
+  const inputStyle = {
+    width: "100%", padding: "9px 12px", borderRadius: 10,
+    border: `2px solid ${T.border}`, background: T.bg,
+    color: T.text, fontSize: 14, fontFamily: "inherit", outline: "none",
+    boxSizing: "border-box",
+  };
+
+  return (
+    <div>
+      {/* Request form */}
+      <div style={{ background: T.bg, borderRadius: 12, padding: 14, border: `1px solid ${T.border}`, marginBottom: 16 }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: T.subtext, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10, display: "block" }}>
+          Request a new symbol
+        </span>
+        <p style={{ fontSize: 12, color: T.subtext, marginBottom: 12, lineHeight: 1.5 }}>
+          Can't find a symbol you need? Tell us what's missing and we'll consider it for a future update.
+        </p>
+
+        <div style={{ marginBottom: 10 }}>
+          <label style={{ fontSize: 12, fontWeight: 700, color: T.text, display: "block", marginBottom: 4 }}>
+            Symbol name <span style={{ color: "#EF4444" }}>*</span>
+          </label>
+          <input
+            placeholder='e.g. "I need a break"'
+            value={label}
+            onChange={(e) => { setLabel(e.target.value); setLabelErr(""); symbolRequests?.clearError?.(); }}
+            style={inputStyle}
+          />
+          {labelErr && <p style={{ fontSize: 11, color: "#EF4444", marginTop: 4, fontWeight: 600 }}>{labelErr}</p>}
+        </div>
+
+        <div style={{ marginBottom: 10 }}>
+          <label style={{ fontSize: 12, fontWeight: 700, color: T.text, display: "block", marginBottom: 4 }}>
+            Emoji suggestion <span style={{ fontSize: 11, color: T.subtext, fontWeight: 400 }}>(optional)</span>
+          </label>
+          <input
+            placeholder="e.g. 😮‍💨"
+            value={emoji}
+            onChange={(e) => setEmoji(e.target.value)}
+            style={{ ...inputStyle, width: 100 }}
+          />
+        </div>
+
+        <div style={{ marginBottom: 14 }}>
+          <label style={{ fontSize: 12, fontWeight: 700, color: T.text, display: "block", marginBottom: 4 }}>
+            Context <span style={{ fontSize: 11, color: T.subtext, fontWeight: 400 }}>(optional)</span>
+          </label>
+          <textarea
+            placeholder="When would this symbol be used? Any extra details that help."
+            value={context}
+            onChange={(e) => setContext(e.target.value)}
+            rows={3}
+            style={{ ...inputStyle, resize: "vertical", lineHeight: 1.5 }}
+          />
+        </div>
+
+        {symbolRequests?.submitError && (
+          <p style={{ fontSize: 12, color: "#F59E0B", marginBottom: 10, fontWeight: 600, background: "#FFFBEB", borderRadius: 8, padding: "6px 10px", border: "1px solid #FDE68A" }}>
+            ⚠️ {symbolRequests.submitError}
+          </p>
+        )}
+        {symbolRequests?.submitSuccess && (
+          <p style={{ fontSize: 12, color: "#10B981", marginBottom: 10, fontWeight: 600, background: "#ECFDF5", borderRadius: 8, padding: "6px 10px", border: "1px solid #6EE7B7" }}>
+            ✅ Request submitted — thank you!
+          </p>
+        )}
+
+        <button
+          onClick={handleSubmit}
+          disabled={symbolRequests?.submitting}
+          style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 18px", background: "linear-gradient(135deg,#6366F1,#8B5CF6)", color: "#fff", border: "none", borderRadius: 10, fontWeight: 800, fontSize: 13, cursor: symbolRequests?.submitting ? "default" : "pointer", opacity: symbolRequests?.submitting ? 0.6 : 1, fontFamily: "inherit" }}
+        >
+          {symbolRequests?.submitting ? "⏳ Sending…" : "📨 Submit request"}
+        </button>
+      </div>
+
+      {/* Request history */}
+      {requests.length > 0 && (
+        <div>
+          <span style={{ fontSize: 11, fontWeight: 700, color: T.subtext, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10, display: "block" }}>
+            Your previous requests ({requests.length})
+          </span>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {[...requests].reverse().map((r) => (
+              <div key={r.id} style={{ background: T.bg, borderRadius: 10, padding: "10px 12px", border: `1px solid ${T.border}`, display: "flex", gap: 10, alignItems: "flex-start" }}>
+                <span style={{ fontSize: 20, marginTop: 1 }}>{r.emoji_suggestion || "💬"}</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 800, fontSize: 13, color: T.text }}>{r.label}</div>
+                  {r.context && <div style={{ fontSize: 11, color: T.subtext, marginTop: 2 }}>{r.context}</div>}
+                  <div style={{ fontSize: 10, color: T.subtext, marginTop: 4 }}>
+                    {new Date(r.created_at).toLocaleDateString()}
+                    {r.offline && <span style={{ marginLeft: 6, color: "#F59E0B", fontWeight: 700 }}>· Pending upload</span>}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

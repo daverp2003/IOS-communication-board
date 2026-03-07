@@ -1,4 +1,7 @@
 export const CATEGORIES = [
+  // Virtual category — populated from useAnalytics.getTopSymbols()
+  // EMOJI_SYMBOLS has no "most_used" key; App.jsx handles it specially.
+  { id: "most_used", label: "Most Used", emoji: "⭐", color: "#6366F1" },
   { id: "greetings", label: "Greetings",    emoji: "👋", color: "#FFE066" },
   { id: "feelings",  label: "Feelings",     emoji: "😊", color: "#FF9F66" },
   { id: "food",      label: "Food",         emoji: "🍎", color: "#FCA5A5" },

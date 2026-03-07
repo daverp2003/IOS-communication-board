@@ -1,11 +1,6 @@
 import { useState, useCallback } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "../lib/supabase";
 import { storageGet, storageSet, storageRemove } from "./useStorageHealth";
-
-const supabase = createClient(
-  "https://fgrfvoazrkutlmiqnmov.supabase.co",
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZncmZ2b2F6cmt1dGxtaXFubW92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4ODkwNjgsImV4cCI6MjA4ODQ2NTA2OH0.lofg1sMtoeY-XIbtkUVb4pMcbUXmD8lnL-N3uYfwTT0"
-);
 
 const SYNC_CODE_KEY    = (profileId) => `symbosay_sync_code_${profileId}`;
 // Stores the old 6-char code while migration is pending, then cleared
