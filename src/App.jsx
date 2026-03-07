@@ -5,6 +5,7 @@ import { useSpeech }      from "./hooks/useSpeech";
 import { useBoards }      from "./hooks/useBoards";
 import { usePIN }         from "./hooks/usePIN";
 import { useProfiles }    from "./hooks/useProfiles";
+import { useSync }        from "./hooks/useSync";
 import SymbolTile         from "./components/SymbolTile";
 import MessageBar         from "./components/MessageBar";
 import MyBoardsView       from "./components/MyBoardsView";
@@ -32,7 +33,8 @@ export default function App() {
   const [editingBoard, setEditingBoard]     = useState(null);
   const [pinModalFor, setPinModalFor]       = useState(null);
 
-  const pin = usePIN();
+  const pin  = usePIN();
+  const sync = useSync(profileId, activeProfile?.name ?? "User");
   const { speaking, speak, stop }                                                       = useSpeech();
   const { boards, activeBoard, saveBoard, deleteBoard, loadBoard, clearActiveBoard }    = useBoards(profileId);
 
@@ -206,6 +208,9 @@ export default function App() {
             theme={theme} setTheme={setTheme}
             T={T}
             pin={pin}
+            sync={sync}
+            boards={boards}
+            settings={{ tileSize, selectedVoice, theme }}
           />
         )}
       </div>
