@@ -1,7 +1,8 @@
 import { useState, useCallback } from "react";
 
 const SUPABASE_URL = "https://fgrfvoazrkutlmiqnmov.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZncmZ2b2F6cmt1dGxtaXFubW92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4ODkwNjgsImV4cCI6MjA4ODQ2NTA2OH0.lofg1sMtoeY-XIbtkUVb4pMcbUXmD8lnL-N3uYfwTT0";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZncmZ2b2F6cmt1dGxtaXFubW92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4ODkwNjgsImV4cCI6MjA4ODQ2NTA2OH0.lofg1sMtoeY-XIbtkUVb4pMcbUXmD8lnL-N3uYfwTT0";
+const SUPABASE_PUB_KEY = "sb_publishable_G0hnuM7wlY-g8puvx2oJ0w_jBRCh-XC";
 
 const SYNC_CODE_KEY = (profileId) => `symbosay_sync_code_${profileId}`;
 
@@ -9,10 +10,11 @@ const SYNC_CODE_KEY = (profileId) => `symbosay_sync_code_${profileId}`;
 async function sbFetch(path, options = {}) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     headers: {
-      "apikey":        SUPABASE_KEY,
-      "Authorization": `Bearer ${SUPABASE_KEY}`,
+      "apikey":        SUPABASE_ANON_KEY,
+      "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
       "Content-Type":  "application/json",
       "Prefer":        "return=minimal",
+      "sb-publishable-key": SUPABASE_PUB_KEY,
       ...options.headers,
     },
     ...options,
@@ -32,11 +34,8 @@ function generateSyncCode() {
 
 // ── Push boards to Supabase ───────────────────────────────────
 async function pushBoards(syncCode, profileName, boards) {
-  // Delete existing boards for this sync code first
   await sbFetch(`sync_boards?sync_code=eq.${syncCode}`, { method: "DELETE" });
-
   if (!boards.length) return;
-
   const rows = boards.map((b) => ({
     id:           `${syncCode}_${b.id}`,
     sync_code:    syncCode,
@@ -44,10 +43,9 @@ async function pushBoards(syncCode, profileName, boards) {
     data:         b,
     updated_at:   new Date().toISOString(),
   }));
-
   await sbFetch("sync_boards", {
-    method: "POST",
-    body:   JSON.stringify(rows),
+    method:  "POST",
+    body:    JSON.stringify(rows),
     headers: { "Prefer": "resolution=merge-duplicates" },
   });
 }
@@ -104,7 +102,7 @@ export function useSync(profileId, profileName) {
       ]);
       setLastSync(new Date());
     } catch (e) {
-      setSyncError("Sync failed — check your connection.");
+      setSyncError(`Sync failed: ${e.message}`);
       console.error("Sync push error:", e);
     } finally {
       setSyncing(false);
@@ -124,12 +122,11 @@ export function useSync(profileId, profileName) {
         setSyncError("No data found for that sync code.");
         return null;
       }
-      // Save this code for future pushes
       localStorage.setItem(SYNC_CODE_KEY(profileId), code);
       setLastSync(new Date());
       return { boards, settings };
     } catch (e) {
-      setSyncError("Could not connect — check your internet connection.");
+      setSyncError(`Sync failed: ${e.message}`);
       console.error("Sync pull error:", e);
       return null;
     } finally {
