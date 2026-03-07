@@ -214,7 +214,7 @@ export default function BuilderView({ T, theme, initialBoard, onSave, onBack, pr
       next[toCell] = sym;
       return next;
     });
-  }, []);
+  }, [pushCells]);
 
   const { startTouchDrag, endDrag, isDragging } = useTouchDrag({
     onDrop:     handleDrop,
