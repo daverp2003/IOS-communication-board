@@ -1,19 +1,17 @@
 import { useState, useCallback } from "react";
 
 const SUPABASE_URL = "https://fgrfvoazrkutlmiqnmov.supabase.co";
-const SUPABASE_KEY = "sb_publishable_G0hnuM7wlY-g8puvx2oJ0w_jBRCh-XC";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZncmZ2b2F6cmt1dGxtaXFubW92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4ODkwNjgsImV4cCI6MjA4ODQ2NTA2OH0.lofg1sMtoeY-XIbtkUVb4pMcbUXmD8lnL-N3uYfwTT0";
 
 const SYNC_CODE_KEY = (profileId) => `symbosay_sync_code_${profileId}`;
 
-// ── Low-level fetch helper ────────────────────────────────────
 async function sbFetch(path, options = {}) {
-  const url = `${SUPABASE_URL}/rest/v1/${path}`;
-  const res = await fetch(url, {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     headers: {
       "Content-Type":  "application/json",
       "Prefer":        "return=minimal",
-      "Authorization": `Bearer ${SUPABASE_KEY}`,
       "apikey":        SUPABASE_KEY,
+      "Authorization": `Bearer ${SUPABASE_KEY}`,
       ...options.headers,
     },
     ...options,
@@ -25,7 +23,6 @@ async function sbFetch(path, options = {}) {
   return res.status === 204 ? null : res.json();
 }
 
-// ── Sync code generation ──────────────────────────────────────
 function generateSyncCode() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
