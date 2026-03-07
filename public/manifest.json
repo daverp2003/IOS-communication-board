@@ -1,0 +1,16 @@
+{
+  "short_name": "SymboSay",
+  "name": "SymboSay — AAC Communication Board",
+  "description": "A premium AAC communication board for individuals who are unable to speak.",
+  "icons": [
+    { "src": "icon-192.png", "type": "image/png", "sizes": "192x192", "purpose": "any maskable" },
+    { "src": "icon-512.png", "type": "image/png", "sizes": "512x512", "purpose": "any maskable" }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#6366F1",
+  "background_color": "#F8F7FF",
+  "categories": ["health", "education", "medical"],
+  "lang": "en-US"
+}
