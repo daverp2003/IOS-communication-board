@@ -4,20 +4,48 @@ import { getAllSymbols, EMOJI_SYMBOLS } from "../constants/symbols";
 import { useCustomIcons } from "../hooks/useCustomIcons";
 
 // ─────────────────────────────────────────────────────────────
-//  Touch drag system
-//  Works on both iPad (touch) and desktop (mouse/HTML5 drag)
+//  Helpers
+// ─────────────────────────────────────────────────────────────
+function removeAllGhosts() {
+  document.querySelectorAll(".drag-ghost").forEach(el => el.remove());
+}
+
+// Transparent full-screen overlay shown during drag to:
+//  - block accidental taps on other elements
+//  - allow non-passive touchmove so we can prevent page scroll
+let dragOverlay = null;
+function createDragOverlay(onMove, onEnd) {
+  removeDragOverlay();
+  dragOverlay = document.createElement("div");
+  dragOverlay.style.cssText = "position:fixed;inset:0;z-index:99998;background:transparent;touch-action:none;";
+  dragOverlay.addEventListener("touchmove",  onMove, { passive: false });
+  dragOverlay.addEventListener("touchend",   onEnd,  { passive: true });
+  dragOverlay.addEventListener("touchcancel",onEnd,  { passive: true });
+  document.body.appendChild(dragOverlay);
+}
+function removeDragOverlay() {
+  if (dragOverlay) { dragOverlay.remove(); dragOverlay = null; }
+}
+
+// ─────────────────────────────────────────────────────────────
+//  Touch drag hook
 // ─────────────────────────────────────────────────────────────
 function useTouchDrag({ onDrop, onDragOver, onDragEnd }) {
-  const dragging    = useRef(null);  // { sym, fromCell }
+  const dragging    = useRef(null);
   const ghostRef    = useRef(null);
   const overCellRef = useRef(null);
 
-  const startDrag = useCallback((sym, fromCell, clientX, clientY) => {
+  // FIX 1: memoize isDragging so useEffect deps stay stable
+  const isDragging = useCallback(() => !!dragging.current, []);
+
+  /** Touch drag — ghost + overlay to block scroll */
+  const startTouchDrag = useCallback((sym, fromCell, clientX, clientY) => {
+    removeAllGhosts();
+    removeDragOverlay();
     dragging.current = { sym, fromCell };
 
-    // Create ghost element
     const ghost = document.createElement("div");
-    ghost.id = "drag-ghost";
+    ghost.className = "drag-ghost";
     ghost.style.cssText = `
       position:fixed; pointer-events:none; z-index:99999;
       width:72px; height:72px; border-radius:14px;
@@ -26,48 +54,99 @@ function useTouchDrag({ onDrop, onDragOver, onDragEnd }) {
       justify-content:center; gap:3px; opacity:0.92;
       transform:translate(-50%,-50%) scale(1.1);
       transition:none; font-family:'Nunito',sans-serif;
+      left:${clientX}px; top:${clientY}px;
     `;
-    ghost.innerHTML = sym.dataUrl
-      ? `<img src="${sym.dataUrl}" style="width:34px;height:34px;object-fit:cover;border-radius:6px;pointer-events:none"/>`
-      : `<span style="font-size:26px;line-height:1">${sym.emoji}</span>`;
-    ghost.innerHTML += `<span style="font-size:9px;font-weight:800;color:#fff;text-align:center;padding:0 4px;line-height:1.1;max-width:66px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${sym.label}</span>`;
-    ghost.style.left = clientX + "px";
-    ghost.style.top  = clientY + "px";
+    if (sym.dataUrl) {
+      const img = document.createElement("img");
+      img.src = sym.dataUrl;
+      img.style.cssText = "width:34px;height:34px;object-fit:cover;border-radius:6px;pointer-events:none";
+      ghost.appendChild(img);
+    } else {
+      const span = document.createElement("span");
+      span.style.cssText = "font-size:26px;line-height:1";
+      span.textContent = sym.emoji;
+      ghost.appendChild(span);
+    }
+    const label = document.createElement("span");
+    label.style.cssText = "font-size:9px;font-weight:800;color:#fff;text-align:center;padding:0 4px;line-height:1.1;max-width:66px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis";
+    label.textContent = sym.label;
+    ghost.appendChild(label);
     document.body.appendChild(ghost);
     ghostRef.current = ghost;
+
+    createDragOverlay(
+      (e) => {
+        e.preventDefault();
+        const t = e.touches[0];
+        if (ghostRef.current) {
+          ghostRef.current.style.left = t.clientX + "px";
+          ghostRef.current.style.top  = t.clientY + "px";
+        }
+        ghostRef.current && (ghostRef.current.style.display = "none");
+        const el = document.elementFromPoint(t.clientX, t.clientY);
+        ghostRef.current && (ghostRef.current.style.display = "flex");
+        const cellEl = el?.closest("[data-cell-idx]");
+        const idx = cellEl ? parseInt(cellEl.dataset.cellIdx) : null;
+        if (idx !== overCellRef.current) {
+          overCellRef.current = idx;
+          onDragOver(idx);
+        }
+      },
+      () => {
+        removeAllGhosts();
+        removeDragOverlay();
+        ghostRef.current = null;
+        if (dragging.current && overCellRef.current !== null) {
+          onDrop(dragging.current.sym, dragging.current.fromCell, overCellRef.current);
+        }
+        dragging.current    = null;
+        overCellRef.current = null;
+        onDragEnd();
+      }
+    );
+  }, [onDrop, onDragOver, onDragEnd]);
+
+  /** Desktop HTML5 drag — no overlay (overlay blocks dragover/drop on cells) */
+  const startDesktopDrag = useCallback((sym, fromCell) => {
+    removeAllGhosts();
+    removeDragOverlay();
+    dragging.current    = { sym, fromCell };
+    overCellRef.current = null;
   }, []);
 
-  const moveDrag = useCallback((clientX, clientY) => {
-    if (!ghostRef.current) return;
-    ghostRef.current.style.left = clientX + "px";
-    ghostRef.current.style.top  = clientY + "px";
-
-    // Find which cell we're over
-    ghostRef.current.style.display = "none";
-    const el = document.elementFromPoint(clientX, clientY);
-    ghostRef.current.style.display = "flex";
-
-    const cellEl = el?.closest("[data-cell-idx]");
-    const idx = cellEl ? parseInt(cellEl.dataset.cellIdx) : null;
-    if (idx !== overCellRef.current) {
-      overCellRef.current = idx;
-      onDragOver(idx);
-    }
-  }, [onDragOver]);
-
   const endDrag = useCallback(() => {
-    if (ghostRef.current) { ghostRef.current.remove(); ghostRef.current = null; }
+    removeAllGhosts();
+    removeDragOverlay();
+    ghostRef.current = null;
     if (dragging.current && overCellRef.current !== null) {
       onDrop(dragging.current.sym, dragging.current.fromCell, overCellRef.current);
     }
-    dragging.current  = null;
+    dragging.current    = null;
     overCellRef.current = null;
     onDragEnd();
   }, [onDrop, onDragEnd]);
 
-  return { startDrag, moveDrag, endDrag, isDragging: () => !!dragging.current };
+  /** Called by desktop HTML5 drop — fires the drop at a known cell index */
+  const dropAt = useCallback((idx) => {
+    if (!dragging.current) return;
+    removeAllGhosts();
+    removeDragOverlay();
+    ghostRef.current = null;
+    onDrop(dragging.current.sym, dragging.current.fromCell, idx);
+    dragging.current    = null;
+    overCellRef.current = null;
+    onDragEnd();
+  }, [onDrop, onDragEnd]);
+
+  // Safety cleanup on unmount
+  useEffect(() => () => { removeAllGhosts(); removeDragOverlay(); }, []);
+
+  return { startTouchDrag, startDesktopDrag, endDrag, dropAt, isDragging };
 }
 
+// ─────────────────────────────────────────────────────────────
+//  BuilderView
+// ─────────────────────────────────────────────────────────────
 export default function BuilderView({ T, theme, initialBoard, onSave, onBack, profileId }) {
   const editing = !!initialBoard?.id && !initialBoard.id.startsWith("default-");
 
@@ -89,14 +168,12 @@ export default function BuilderView({ T, theme, initialBoard, onSave, onBack, pr
   const fileInputRef = useRef(null);
 
   const { icons: customIcons, addIcon, deleteIcon } = useCustomIcons(profileId);
-
   const boardId = initialBoard?.id || null;
 
   const libSymbols = search.trim()
     ? getAllSymbols().filter((s) => s.label.toLowerCase().includes(search.toLowerCase()))
     : EMOJI_SYMBOLS[category] || [];
 
-  // ── Touch drag callbacks ───────────────────────────────────
   const handleDrop = useCallback((sym, fromCell, toCell) => {
     setCells((prev) => {
       const next = { ...prev };
@@ -106,43 +183,83 @@ export default function BuilderView({ T, theme, initialBoard, onSave, onBack, pr
     });
   }, []);
 
-  const { startDrag, moveDrag, endDrag, isDragging } = useTouchDrag({
+  const { startTouchDrag, startDesktopDrag, endDrag, dropAt, isDragging } = useTouchDrag({
     onDrop:     handleDrop,
     onDragOver: (idx) => setDragOverCell(idx),
     onDragEnd:  () => setDragOverCell(null),
   });
 
-  // Global touch move/end listeners (needed since touch events don't bubble like mouse)
-  useEffect(() => {
-    const onMove = (e) => {
-      if (!isDragging()) return;
-      e.preventDefault();
-      const t = e.touches[0];
-      moveDrag(t.clientX, t.clientY);
-    };
-    const onEnd = () => { if (isDragging()) endDrag(); };
-    document.addEventListener("touchmove", onMove, { passive: false });
-    document.addEventListener("touchend",  onEnd);
-    return () => {
-      document.removeEventListener("touchmove", onMove);
-      document.removeEventListener("touchend",  onEnd);
-    };
-  }, [moveDrag, endDrag, isDragging]);
+  // ── Long-press to initiate drag ────────────────────────────
+  // FIX 5: tiles use touchAction:"pan-y" for normal scroll.
+  // After 300ms hold we call startDrag which creates the overlay
+  // that blocks scroll for the rest of the gesture.
+  const longPressTimer = useRef(null);
+  const touchStartPos  = useRef(null);
 
-  // ── Symbol tile touch start ────────────────────────────────
+  // Non-passive touchstart on document: prevents iOS scroll container from
+  // claiming the gesture when the user touches a draggable tile.
+  // React onTouchStart is passive — cannot call preventDefault from it.
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.target.closest("[data-draggable]")) {
+        e.preventDefault();
+      }
+    };
+    document.addEventListener("touchstart", handler, { passive: false });
+    return () => document.removeEventListener("touchstart", handler);
+  }, []);
+
   const handleSymTouchStart = (sym, fromCell, e) => {
-    e.preventDefault();
+    clearTimeout(longPressTimer.current);
     const t = e.touches[0];
-    startDrag(sym, fromCell, t.clientX, t.clientY);
+    touchStartPos.current = { x: t.clientX, y: t.clientY };
+    longPressTimer.current = setTimeout(() => {
+      longPressTimer.current = null;
+      navigator.vibrate?.(30);
+      startTouchDrag(sym, fromCell, t.clientX, t.clientY);
+    }, 300);
   };
 
-  // ── HTML5 drag (desktop fallback) ─────────────────────────
-  const handleDragStart   = (sym, fromCell) => startDrag(sym, fromCell, 0, 0);
-  const handleDragOver    = (e, idx)        => { e.preventDefault(); setDragOverCell(idx); };
-  const handleDragEnd     = ()              => { setDragOverCell(null); };
-  const handleCellDrop    = (e, idx)        => {
+  // FIX 2: removed duplicate moveDrag call — overlay handles it exclusively
+  const handleSymTouchMove = (e) => {
+    if (!longPressTimer.current) return; // drag already started or not pending
+    const t  = e.touches[0];
+    const dx = Math.abs(t.clientX - (touchStartPos.current?.x || 0));
+    const dy = Math.abs(t.clientY - (touchStartPos.current?.y || 0));
+    if (dx > 8 || dy > 8) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
+
+  const handleSymTouchEnd = () => {
+    clearTimeout(longPressTimer.current);
+    longPressTimer.current = null;
+    if (isDragging()) endDrag();
+  };
+
+  const handleSymTouchCancel = () => {
+    clearTimeout(longPressTimer.current);
+    longPressTimer.current = null;
+    if (isDragging()) { removeAllGhosts(); removeDragOverlay(); }
+  };
+
+  // ── HTML5 drag (desktop) — uses dataTransfer, no ref juggling ──
+  const handleDragStart = (sym, fromCell, e) => {
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("application/json", JSON.stringify({ sym, fromCell: fromCell ?? null }));
+    setDragOverCell(null);
+  };
+  const handleDragOver  = (e, idx) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setDragOverCell(idx); };
+  const handleDragLeave = ()       => setDragOverCell(null);
+  const handleDragEnd   = ()       => setDragOverCell(null);
+  const handleCellDrop  = (e, idx) => {
     e.preventDefault();
-    // handled by touch system; HTML5 fallback for desktop
+    try {
+      const { sym, fromCell } = JSON.parse(e.dataTransfer.getData("application/json"));
+      handleDrop(sym, fromCell, idx);
+    } catch (_) {}
+    setDragOverCell(null);
   };
 
   const removeFromCell = (idx) => setCells((p) => { const n = { ...p }; delete n[idx]; return n; });
@@ -158,7 +275,7 @@ export default function BuilderView({ T, theme, initialBoard, onSave, onBack, pr
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith("image/")) { alert("Please choose an image file."); return; }
-    if (file.size > 5 * 1024 * 1024) { alert("Image must be under 5 MB."); return; }
+    if (file.size > 5 * 1024 * 1024)    { alert("Image must be under 5 MB."); return; }
     const reader = new FileReader();
     reader.onload = (ev) => { setUploadModal({ dataUrl: ev.target.result }); setUploadLabel(""); setUploadError(""); };
     reader.readAsDataURL(file);
@@ -176,8 +293,10 @@ export default function BuilderView({ T, theme, initialBoard, onSave, onBack, pr
     formInput: { background: T.bg, border: `2px solid ${T.border}`, borderRadius: 10, padding: "9px 13px", fontSize: 15, fontWeight: 700, color: T.text, fontFamily: "inherit", outline: "none", width: "100%", boxSizing: "border-box" },
     input:     { border: "none", background: "none", outline: "none", flex: 1, fontSize: 14, color: T.text, fontFamily: "inherit" },
     libTab:    (active) => ({ padding: "5px 11px", border: "none", borderRadius: 20, fontWeight: 700, fontSize: 10, cursor: "pointer", fontFamily: "inherit", background: active ? "#6366F1" : T.bg, color: active ? "#fff" : T.subtext, flexShrink: 0, touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }),
-    btn:       { touchAction: "manipulation", WebkitTapHighlightColor: "transparent" },
   };
+
+  // Draggable tile shared style
+  const draggableTileStyle = { touchAction: "none", userSelect: "none", WebkitUserSelect: "none", cursor: "grab" };
 
   return (
     <div style={{ background: T.panel, borderRadius: 16, overflow: "hidden", boxShadow: `0 4px 20px ${T.shadow}` }}>
@@ -225,7 +344,7 @@ export default function BuilderView({ T, theme, initialBoard, onSave, onBack, pr
         {/* Left: grid */}
         <div style={{ flex: "0 0 55%", padding: 12, borderRight: `1px solid ${T.border}` }}>
           <div style={{ fontSize: 11, fontWeight: 800, color: T.subtext, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>
-            📐 Grid — drag symbols in
+            📐 Grid — hold icon to drag
           </div>
           <div style={{ display: "grid", gridTemplateColumns: `repeat(${gridSize.cols},1fr)`, gap: 6 }}>
             {Array.from({ length: gridSize.cells }, (_, i) => {
@@ -236,6 +355,7 @@ export default function BuilderView({ T, theme, initialBoard, onSave, onBack, pr
                   key={i}
                   data-cell-idx={i}
                   onDragOver={(e) => handleDragOver(e, i)}
+                  onDragLeave={handleDragLeave}
                   onDrop={(e) => handleCellDrop(e, i)}
                   style={{
                     aspectRatio: "1", borderRadius: 12, position: "relative",
@@ -249,10 +369,14 @@ export default function BuilderView({ T, theme, initialBoard, onSave, onBack, pr
                     <>
                       <div
                         draggable
-                        onDragStart={() => handleDragStart(sym, i)}
+                        data-draggable="true"
+                        onDragStart={(e) => handleDragStart(sym, i, e)}
                         onDragEnd={handleDragEnd}
                         onTouchStart={(e) => handleSymTouchStart(sym, i, e)}
-                        style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, width: "100%", padding: 4, cursor: "grab", touchAction: "none", userSelect: "none", WebkitUserSelect: "none" }}
+                        onTouchMove={handleSymTouchMove}
+                        onTouchEnd={handleSymTouchEnd}
+                        onTouchCancel={handleSymTouchCancel}
+                        style={{ ...draggableTileStyle, display: "flex", flexDirection: "column", alignItems: "center", gap: 2, width: "100%", padding: 4 }}
                       >
                         {sym.dataUrl
                           ? <img src={sym.dataUrl} alt={sym.label} style={{ width: "min(34px,5.5vw)", height: "min(34px,5.5vw)", objectFit: "cover", borderRadius: 6, pointerEvents: "none" }} />
@@ -305,10 +429,14 @@ export default function BuilderView({ T, theme, initialBoard, onSave, onBack, pr
                   <div
                     key={sym.id}
                     draggable
-                    onDragStart={() => handleDragStart(sym, undefined)}
+                    data-draggable="true"
+                    onDragStart={(e) => handleDragStart(sym, undefined, e)}
                     onDragEnd={handleDragEnd}
                     onTouchStart={(e) => handleSymTouchStart(sym, undefined, e)}
-                    style={{ width: 64, height: 64, background: `${sym.color}22`, border: `2px solid ${sym.color}55`, borderRadius: 12, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", cursor: "grab", gap: 2, userSelect: "none", WebkitUserSelect: "none", flexShrink: 0, touchAction: "none" }}
+                    onTouchMove={handleSymTouchMove}
+                    onTouchEnd={handleSymTouchEnd}
+                    onTouchCancel={handleSymTouchCancel}
+                    style={{ ...draggableTileStyle, width: 64, height: 64, background: `${sym.color}22`, border: `2px solid ${sym.color}55`, borderRadius: 12, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2, flexShrink: 0 }}
                   >
                     <span style={{ fontSize: 24, pointerEvents: "none" }}>{sym.emoji}</span>
                     <span style={{ fontSize: 8, fontWeight: 800, textAlign: "center", color: T.text, padding: "0 3px", lineHeight: 1.1, pointerEvents: "none" }}>{sym.label}</span>
@@ -340,10 +468,14 @@ export default function BuilderView({ T, theme, initialBoard, onSave, onBack, pr
                     <div key={icon.id} style={{ position: "relative", width: 64, flexShrink: 0 }}>
                       <div
                         draggable
-                        onDragStart={() => handleDragStart(icon, undefined)}
+                        data-draggable="true"
+                        onDragStart={(e) => handleDragStart(icon, undefined, e)}
                         onDragEnd={handleDragEnd}
                         onTouchStart={(e) => handleSymTouchStart(icon, undefined, e)}
-                        style={{ width: 64, height: 64, background: `${icon.color}18`, border: `2px solid ${icon.color}55`, borderRadius: 12, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", cursor: "grab", gap: 2, userSelect: "none", WebkitUserSelect: "none", overflow: "hidden", touchAction: "none" }}
+                        onTouchMove={handleSymTouchMove}
+                        onTouchEnd={handleSymTouchEnd}
+                        onTouchCancel={handleSymTouchCancel}
+                        style={{ ...draggableTileStyle, width: 64, height: 64, background: `${icon.color}18`, border: `2px solid ${icon.color}55`, borderRadius: 12, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2, overflow: "hidden" }}
                       >
                         <img src={icon.dataUrl} alt={icon.label} style={{ width: 36, height: 36, objectFit: "cover", borderRadius: 6, pointerEvents: "none" }} />
                         <span style={{ fontSize: 8, fontWeight: 800, textAlign: "center", color: T.text, padding: "0 3px", lineHeight: 1.1, maxWidth: "100%", pointerEvents: "none" }}>{icon.label}</span>
