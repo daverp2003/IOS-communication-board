@@ -129,11 +129,33 @@ export default function BuilderView({ T, theme, initialBoard, onSave, onBack, pr
     };
   }, [moveDrag, endDrag, isDragging]);
 
-  // ── Symbol tile touch start ────────────────────────────────
+  // ── Long-press drag (300ms hold = drag, quick swipe = scroll) ─────────────
+  const longPressTimer = useRef(null);
+  const touchStartPos  = useRef(null);
+
   const handleSymTouchStart = (sym, fromCell, e) => {
-    e.preventDefault();
     const t = e.touches[0];
-    startDrag(sym, fromCell, t.clientX, t.clientY);
+    touchStartPos.current = { x: t.clientX, y: t.clientY };
+    longPressTimer.current = setTimeout(() => {
+      navigator.vibrate?.(30);
+      startDrag(sym, fromCell, t.clientX, t.clientY);
+    }, 300);
+  };
+
+  const handleSymTouchMove = (e) => {
+    if (!longPressTimer.current) return;
+    const t = e.touches[0];
+    const dx = Math.abs(t.clientX - (touchStartPos.current?.x || 0));
+    const dy = Math.abs(t.clientY - (touchStartPos.current?.y || 0));
+    if (dx > 8 || dy > 8) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
+
+  const handleSymTouchEnd = () => {
+    clearTimeout(longPressTimer.current);
+    longPressTimer.current = null;
   };
 
   // ── HTML5 drag (desktop fallback) ─────────────────────────
