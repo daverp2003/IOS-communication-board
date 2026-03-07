@@ -112,17 +112,16 @@ export default function BuilderView({ T, theme, initialBoard, onSave, onBack, pr
     onDragEnd:  () => setDragOverCell(null),
   });
 
-  // Global touch move/end listeners (needed since touch events don't bubble like mouse)
+  // Global touch move/end — passive: true so normal scrolling is NEVER blocked
   useEffect(() => {
     const onMove = (e) => {
       if (!isDragging()) return;
-      e.preventDefault();
       const t = e.touches[0];
       moveDrag(t.clientX, t.clientY);
     };
     const onEnd = () => { if (isDragging()) endDrag(); };
-    document.addEventListener("touchmove", onMove, { passive: false });
-    document.addEventListener("touchend",  onEnd);
+    document.addEventListener("touchmove", onMove, { passive: true });
+    document.addEventListener("touchend",  onEnd,  { passive: true });
     return () => {
       document.removeEventListener("touchmove", onMove);
       document.removeEventListener("touchend",  onEnd);
