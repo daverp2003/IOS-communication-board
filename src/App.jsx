@@ -1,19 +1,27 @@
 import { useState } from "react";
 import { EMOJI_SYMBOLS, getAllSymbols } from "./constants/symbols";
 import { CATEGORIES, VOICES, THEMES } from "./constants/config";
-import { useSpeech } from "./hooks/useSpeech";
-import { useBoards } from "./hooks/useBoards";
-import { usePIN } from "./hooks/usePIN";
-import SymbolTile from "./components/SymbolTile";
-import MessageBar from "./components/MessageBar";
-import MyBoardsView from "./components/MyBoardsView";
-import BuilderView from "./components/BuilderView";
-import SettingsView from "./components/SettingsView";
-import PINLock from "./components/PINLock";
+import { useSpeech }      from "./hooks/useSpeech";
+import { useBoards }      from "./hooks/useBoards";
+import { usePIN }         from "./hooks/usePIN";
+import { useProfiles }    from "./hooks/useProfiles";
+import SymbolTile         from "./components/SymbolTile";
+import MessageBar         from "./components/MessageBar";
+import MyBoardsView       from "./components/MyBoardsView";
+import BuilderView        from "./components/BuilderView";
+import SettingsView       from "./components/SettingsView";
+import PINLock            from "./components/PINLock";
+import ProfilePicker      from "./components/ProfilePicker";
 
 const PROTECTED_VIEWS = ["myboards", "builder", "settings"];
 
 export default function App() {
+  // ── Profiles ───────────────────────────────────────────
+  const { profiles, activeProfile, selectProfile, addProfile, deleteProfile, logout } = useProfiles();
+
+  const profileId = activeProfile?.id ?? null;
+
+  // ── Per-profile state ──────────────────────────────────
   const [view, setView]                     = useState("board");
   const [activeCategory, setActiveCategory] = useState("greetings");
   const [message, setMessage]               = useState([]);
@@ -25,10 +33,10 @@ export default function App() {
   const [pinModalFor, setPinModalFor]       = useState(null);
 
   const pin = usePIN();
-  const { speaking, speak, stop } = useSpeech();
-  const { boards, activeBoard, saveBoard, deleteBoard, loadBoard, clearActiveBoard } = useBoards();
+  const { speaking, speak, stop }                                                       = useSpeech();
+  const { boards, activeBoard, saveBoard, deleteBoard, loadBoard, clearActiveBoard }    = useBoards(profileId);
 
-  const T = THEMES[theme];
+  const T = THEMES[theme] ?? THEMES.light;
 
   const sz = {
     tile:  tileSize,
@@ -78,13 +86,43 @@ export default function App() {
     smallBtn:  { background: T.border, border: "none", borderRadius: 8, padding: "5px 8px", cursor: "pointer", fontSize: 15, color: T.text },
   };
 
+  // ── Show profile picker if no active profile ────────────
+  if (!activeProfile) {
+    return (
+      <ProfilePicker
+        profiles={profiles}
+        onSelect={selectProfile}
+        onAdd={addProfile}
+        onDelete={deleteProfile}
+        pin={pin}
+      />
+    );
+  }
+
   return (
     <div style={css.app}>
 
       {(view === "board" || view === "myboards") && (
         <div style={css.header}>
           <div style={css.topBar}>
-            <span style={css.appTitle}>💬 SymboSay</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={css.appTitle}>💬 SymboSay</span>
+              {/* Active profile badge */}
+              <button
+                onClick={logout}
+                title="Switch profile"
+                style={{
+                  display: "flex", alignItems: "center", gap: 5,
+                  background: `${activeProfile.color}18`,
+                  border: `1px solid ${activeProfile.color}44`,
+                  borderRadius: 20, padding: "3px 10px 3px 6px",
+                  cursor: "pointer", fontFamily: "inherit",
+                }}
+              >
+                <span style={{ fontSize: 16 }}>{activeProfile.emoji}</span>
+                <span style={{ fontSize: 11, fontWeight: 800, color: activeProfile.color }}>{activeProfile.name}</span>
+              </button>
+            </div>
             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
               {activeBoard && (
                 <>
@@ -158,7 +196,7 @@ export default function App() {
         )}
 
         {view === "builder" && (
-          <BuilderView T={T} theme={theme} initialBoard={editingBoard} onSave={saveBoard} onBack={() => setView("myboards")} />
+          <BuilderView T={T} theme={theme} initialBoard={editingBoard} onSave={saveBoard} onBack={() => setView("myboards")} profileId={profileId} />
         )}
 
         {view === "settings" && (
@@ -172,6 +210,7 @@ export default function App() {
         )}
       </div>
 
+      {/* Bottom nav */}
       <div style={css.bottomNav}>
         {[
           { id: "board",    icon: "🎯", label: "Board"    },
@@ -192,6 +231,7 @@ export default function App() {
         ))}
       </div>
 
+      {/* PIN modal */}
       {pinModalFor && (
         <PINLock
           T={T}
