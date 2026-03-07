@@ -7,17 +7,24 @@ import { useCustomIcons } from "../hooks/useCustomIcons";
 //  Touch drag system
 //  Works on both iPad (touch) and desktop (mouse/HTML5 drag)
 // ─────────────────────────────────────────────────────────────
+function removeAllGhosts() {
+  document.querySelectorAll(".drag-ghost").forEach(el => el.remove());
+}
+
 function useTouchDrag({ onDrop, onDragOver, onDragEnd }) {
-  const dragging    = useRef(null);  // { sym, fromCell }
+  const dragging    = useRef(null);
   const ghostRef    = useRef(null);
   const overCellRef = useRef(null);
 
   const startDrag = useCallback((sym, fromCell, clientX, clientY) => {
+    // Always clean up any stale ghosts first
+    removeAllGhosts();
+    if (ghostRef.current) { ghostRef.current.remove(); ghostRef.current = null; }
+
     dragging.current = { sym, fromCell };
 
-    // Create ghost element
     const ghost = document.createElement("div");
-    ghost.id = "drag-ghost";
+    ghost.className = "drag-ghost";
     ghost.style.cssText = `
       position:fixed; pointer-events:none; z-index:99999;
       width:72px; height:72px; border-radius:14px;
@@ -42,7 +49,6 @@ function useTouchDrag({ onDrop, onDragOver, onDragEnd }) {
     ghostRef.current.style.left = clientX + "px";
     ghostRef.current.style.top  = clientY + "px";
 
-    // Find which cell we're over
     ghostRef.current.style.display = "none";
     const el = document.elementFromPoint(clientX, clientY);
     ghostRef.current.style.display = "flex";
@@ -56,14 +62,20 @@ function useTouchDrag({ onDrop, onDragOver, onDragEnd }) {
   }, [onDragOver]);
 
   const endDrag = useCallback(() => {
-    if (ghostRef.current) { ghostRef.current.remove(); ghostRef.current = null; }
+    // Remove ghost and ALL stale ghosts
+    removeAllGhosts();
+    ghostRef.current = null;
+
     if (dragging.current && overCellRef.current !== null) {
       onDrop(dragging.current.sym, dragging.current.fromCell, overCellRef.current);
     }
-    dragging.current  = null;
+    dragging.current    = null;
     overCellRef.current = null;
     onDragEnd();
   }, [onDrop, onDragEnd]);
+
+  // Safety cleanup on unmount
+  useEffect(() => () => removeAllGhosts(), []);
 
   return { startDrag, moveDrag, endDrag, isDragging: () => !!dragging.current };
 }
@@ -133,9 +145,14 @@ export default function BuilderView({ T, theme, initialBoard, onSave, onBack, pr
   const touchStartPos  = useRef(null);
 
   const handleSymTouchStart = (sym, fromCell, e) => {
+    // Cancel any existing timer first to prevent multiple drags
+    clearTimeout(longPressTimer.current);
+    longPressTimer.current = null;
+
     const t = e.touches[0];
     touchStartPos.current = { x: t.clientX, y: t.clientY };
     longPressTimer.current = setTimeout(() => {
+      longPressTimer.current = null;
       navigator.vibrate?.(30);
       startDrag(sym, fromCell, t.clientX, t.clientY);
     }, 300);
