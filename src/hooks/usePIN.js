@@ -1,7 +1,16 @@
 import { useState, useCallback, useRef } from "react";
 
-const PIN_KEY        = "symbosay_caregiver_pin";
-const AUTO_LOCK_MS   = 10 * 60 * 1000; // auto-lock after 10 minutes of unlocked use
+const PIN_KEY      = "symbosay_caregiver_pin";
+const AUTO_LOCK_MS = 10 * 60 * 1000; // auto-lock after 10 minutes of unlocked use
+
+/** SHA-256 hash a string, returns lowercase hex */
+async function sha256(text) {
+  const encoded = new TextEncoder().encode(text);
+  const hashBuf = await crypto.subtle.digest("SHA-256", encoded);
+  return Array.from(new Uint8Array(hashBuf))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
 
 export function usePIN() {
   const [isUnlocked, setIsUnlocked] = useState(false);
@@ -19,12 +28,18 @@ export function usePIN() {
   /** Returns true if a PIN has been set */
   const isPINEnabled = useCallback(() => !!localStorage.getItem(PIN_KEY), []);
 
-  /** Returns true if the candidate matches the stored PIN */
-  const checkPIN = useCallback((candidate) => candidate === localStorage.getItem(PIN_KEY), []);
+  /** Returns true if the candidate matches the stored PIN hash */
+  const checkPIN = useCallback(async (candidate) => {
+    const stored = localStorage.getItem(PIN_KEY);
+    if (!stored) return false;
+    const hashed = await sha256(candidate);
+    return hashed === stored;
+  }, []);
 
-  /** Save a new PIN and unlock immediately */
-  const setPIN = useCallback((pin) => {
-    localStorage.setItem(PIN_KEY, pin);
+  /** Hash and save a new PIN, then unlock immediately */
+  const setPIN = useCallback(async (pin) => {
+    const hashed = await sha256(pin);
+    localStorage.setItem(PIN_KEY, hashed);
     setIsUnlocked(true);
     startTimer();
   }, []); // eslint-disable-line

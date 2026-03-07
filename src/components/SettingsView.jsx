@@ -286,8 +286,9 @@ function PINSettings({ T, pin }) {
   const btnRow     = { display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" };
   const errStyle   = { color: "#EF4444", fontSize: 12, fontWeight: 600, marginTop: 8 };
 
-  const verifyCurrentPIN = (candidate) => {
-    if (!pin.checkPIN(candidate)) { setError("Incorrect PIN — try again"); setStep1(""); return; }
+  const verifyCurrentPIN = async (candidate) => {
+    const ok = await pin.checkPIN(candidate);
+    if (!ok) { setError("Incorrect PIN — try again"); setStep1(""); return; }
     setError(""); setStep1("");
     if (mode === "verify-change") setMode("change");
     if (mode === "verify-remove") setMode("confirm-remove");
@@ -299,9 +300,9 @@ function PINSettings({ T, pin }) {
   };
 
   const handleSetNext    = () => { if (step1.length < 4) { setError("PIN must be exactly 4 digits"); return; } setMode("set-confirm"); setStep2(""); setError(""); };
-  const handleSetSave    = () => { if (step1 !== step2) { setError("PINs don't match — try again"); setStep2(""); return; } pin.setPIN(step1); reset(); };
+  const handleSetSave    = async () => { if (step1 !== step2) { setError("PINs don't match — try again"); setStep2(""); return; } await pin.setPIN(step1); reset(); };
   const handleChangeNext = () => { if (step1.length < 4) { setError("PIN must be exactly 4 digits"); return; } setMode("change-confirm"); setStep2(""); setError(""); };
-  const handleChangeSave = () => { if (step1 !== step2) { setError("PINs don't match — try again"); setStep2(""); return; } pin.setPIN(step1); reset(); };
+  const handleChangeSave = async () => { if (step1 !== step2) { setError("PINs don't match — try again"); setStep2(""); return; } await pin.setPIN(step1); reset(); };
 
   const infoBox = (text) => (
     <div style={{ fontSize: 13, color: T.subtext, lineHeight: 1.55, marginBottom: 16, background: `${T.border}44`, borderRadius: 10, padding: "10px 12px" }}>{text}</div>

@@ -254,6 +254,7 @@ export default function App() {
       {pinModalFor && (
         <PINLock
           T={T}
+          checkPIN={pin.checkPIN}
           onSuccess={() => {
             pin.unlock();
             const { view: targetView, builderBoard } = pinModalFor;

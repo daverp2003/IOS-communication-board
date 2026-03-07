@@ -29,11 +29,8 @@ export default function PINLock({ T, onSuccess, onCancel, checkPIN }) {
     setError("");
 
     if (next.length === 4) {
-      setTimeout(() => {
-        // FIX 7: Use checkPIN prop if provided, else fall back to localStorage
-        const correct = checkPIN
-          ? checkPIN(next)
-          : next === localStorage.getItem("symbosay_caregiver_pin");
+      setTimeout(async () => {
+        const correct = checkPIN ? await checkPIN(next) : false;
 
         if (correct) {
           setEntered("");
