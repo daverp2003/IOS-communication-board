@@ -3,7 +3,7 @@ import { useState, useRef } from "react";
 // How many pixels of movement counts as a scroll (not a tap)
 const SCROLL_THRESHOLD = 8;
 
-export default function SymbolTile({ symbol, sz, T, theme, onPress, draggable, onDragStart, onDragEnd, compact }) {
+export default function SymbolTile({ symbol, sz, T, theme, onPress, draggable, onDragStart, onDragEnd, compact, scanHighlight }) {
   const [pressed, setPressed] = useState(false);
   const touchStartRef = useRef(null); // { x, y } of touch start
   const didScrollRef  = useRef(false);
@@ -63,7 +63,7 @@ export default function SymbolTile({ symbol, sz, T, theme, onPress, draggable, o
       style={{
         width: w, height: w,
         background: pressed ? symbol.color : theme === "highcontrast" ? "#111" : `${symbol.color}22`,
-        border: `2px solid ${pressed ? symbol.color : `${symbol.color}66`}`,
+        border: `2px solid ${pressed ? symbol.color : scanHighlight ? "#FBBF24" : `${symbol.color}66`}`,
         borderRadius: Math.max(10, w * 0.12),
         display: "flex", flexDirection: "column",
         alignItems: "center", justifyContent: "center",
@@ -75,7 +75,7 @@ export default function SymbolTile({ symbol, sz, T, theme, onPress, draggable, o
         transition: "transform 0.1s, background 0.1s",
         animation: "pop 0.2s ease",
         flexShrink: 0,
-        boxShadow: pressed ? `0 0 0 3px ${symbol.color}55` : "none",
+        boxShadow: scanHighlight ? "0 0 0 4px #FBBF24, 0 0 0 7px #F59E0B55" : pressed ? `0 0 0 3px ${symbol.color}55` : "none",
         overflow: "hidden",
         touchAction: "pan-y",
         WebkitTapHighlightColor: "transparent",

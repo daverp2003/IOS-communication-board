@@ -8,7 +8,8 @@ import { usePIN }              from "./hooks/usePIN";
 import { useProfiles }         from "./hooks/useProfiles";
 import { useSync }             from "./hooks/useSync";
 import { useStorageHealth, storageGet, storageSet } from "./hooks/useStorageHealth";
-import { useOnlineStatus } from "./hooks/useOnlineStatus";
+import { useOnlineStatus }    from "./hooks/useOnlineStatus";
+import { useSwitchScanning }  from "./hooks/useSwitchScanning";
 import VirtualSymbolGrid  from "./components/VirtualSymbolGrid";
 import MessageBar         from "./components/MessageBar";
 import MyBoardsView       from "./components/MyBoardsView";
@@ -126,6 +127,13 @@ export default function App() {
     setMessage((prev) => [...prev, symbol]);
     speak(symbol.label);
   };
+
+  // Switch scanning
+  const { scanIndex, scanEnabled, setScanEnabled, scanInterval, setScanInterval } =
+    useSwitchScanning({
+      itemCount: boardSymbols.length,
+      onSelect:  (i) => { if (boardSymbols[i]) handleTilePress(boardSymbols[i]); },
+    });
 
   const handleSpeak = () => {
     if (speaking) { stop(); return; }
@@ -298,6 +306,7 @@ export default function App() {
               T={T}
               theme={theme}
               onPress={handleTilePress}
+              focusedIndex={scanEnabled ? scanIndex : null}
             />
           </>
         )}
@@ -330,6 +339,10 @@ export default function App() {
             conflictPending={conflictPending}
             setConflictPending={setConflictPending}
             isOnline={isOnline}
+            scanEnabled={scanEnabled}
+            setScanEnabled={setScanEnabled}
+            scanInterval={scanInterval}
+            setScanInterval={setScanInterval}
           />
         )}
       </div>

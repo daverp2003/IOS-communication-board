@@ -144,6 +144,8 @@ export default function BuilderView({ T, theme, initialBoard, onSave, onBack, pr
   const editing = !!initialBoard?.id && !initialBoard.id.startsWith("default-");
 
   const [cells, setCells]               = useState(initialBoard?.cells || {});
+  const [history, setHistory]           = useState([initialBoard?.cells || {}]);
+  const [historyIdx, setHistoryIdx]     = useState(0);
   const [gridSize, setGridSize]         = useState(initialBoard?.gridSize || GRID_SIZES[2]);
   const [name, setName]                 = useState(initialBoard?.name || "");
   const [color, setColor]               = useState(initialBoard?.color || BOARD_COLORS[0]);
@@ -167,8 +169,46 @@ export default function BuilderView({ T, theme, initialBoard, onSave, onBack, pr
     ? getAllSymbols().filter((s) => s.label.toLowerCase().includes(search.toLowerCase()))
     : EMOJI_SYMBOLS[category] || [];
 
-  const handleDrop = useCallback((sym, fromCell, toCell) => {
+  // ── Undo/redo helpers ─────────────────────────────────────
+  const pushCells = useCallback((updater) => {
     setCells((prev) => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      setHistory((h) => {
+        const trimmed = h.slice(0, historyIdx + 1);
+        return [...trimmed, next];
+      });
+      setHistoryIdx((i) => i + 1);
+      return next;
+    });
+  }, [historyIdx]);
+
+  const undo = useCallback(() => {
+    if (historyIdx <= 0) return;
+    const prev = history[historyIdx - 1];
+    setCells(prev);
+    setHistoryIdx((i) => i - 1);
+  }, [history, historyIdx]);
+
+  const redo = useCallback(() => {
+    if (historyIdx >= history.length - 1) return;
+    const next = history[historyIdx + 1];
+    setCells(next);
+    setHistoryIdx((i) => i + 1);
+  }, [history, historyIdx]);
+
+  // Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z
+  useEffect(() => {
+    const onKey = (e) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      if (e.key === "z" && !e.shiftKey) { e.preventDefault(); undo(); }
+      if ((e.key === "y") || (e.key === "z" && e.shiftKey)) { e.preventDefault(); redo(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [undo, redo]);
+
+  const handleDrop = useCallback((sym, fromCell, toCell) => {
+    pushCells((prev) => {
       const next = { ...prev };
       if (fromCell !== undefined && fromCell !== null) delete next[fromCell];
       next[toCell] = sym;
@@ -255,7 +295,7 @@ export default function BuilderView({ T, theme, initialBoard, onSave, onBack, pr
     setDragOverCell(null);
   };
 
-  const removeFromCell = (idx) => setCells((p) => { const n = { ...p }; delete n[idx]; return n; });
+  const removeFromCell = (idx) => pushCells((p) => { const n = { ...p }; delete n[idx]; return n; });
 
   const handleSave = () => {
     if (!name.trim()) return;
@@ -297,7 +337,19 @@ export default function BuilderView({ T, theme, initialBoard, onSave, onBack, pr
       {/* Header */}
       <div style={{ padding: "14px 16px", borderBottom: `1px solid ${T.border}`, display: "flex", alignItems: "center", gap: 10 }}>
         <button onClick={onBack} style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8, padding: "5px 10px", cursor: "pointer", fontSize: 14, color: T.text, touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}>← Back</button>
-        <div style={{ fontSize: 17, fontWeight: 900 }}>✏️ {editing ? "Edit Board" : "New Board"}</div>
+        <div style={{ fontSize: 17, fontWeight: 900, flex: 1 }}>✏️ {editing ? "Edit Board" : "New Board"}</div>
+        <button
+          onClick={undo}
+          disabled={historyIdx <= 0}
+          title="Undo (Ctrl+Z)"
+          style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8, padding: "5px 10px", cursor: historyIdx <= 0 ? "not-allowed" : "pointer", fontSize: 16, color: historyIdx <= 0 ? T.subtext : T.text, touchAction: "manipulation", opacity: historyIdx <= 0 ? 0.4 : 1 }}
+        >↩</button>
+        <button
+          onClick={redo}
+          disabled={historyIdx >= history.length - 1}
+          title="Redo (Ctrl+Y)"
+          style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8, padding: "5px 10px", cursor: historyIdx >= history.length - 1 ? "not-allowed" : "pointer", fontSize: 16, color: historyIdx >= history.length - 1 ? T.subtext : T.text, touchAction: "manipulation", opacity: historyIdx >= history.length - 1 ? 0.4 : 1 }}
+        >↪</button>
       </div>
 
       {/* Meta */}

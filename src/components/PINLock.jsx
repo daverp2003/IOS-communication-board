@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 /**
  * PINLock — full-screen PIN-pad overlay.
@@ -22,8 +22,7 @@ export default function PINLock({ T, onSuccess, onCancel, checkPIN }) {
   const text       = T.text       ?? "#1a1a2e";
   const border     = T.border     ?? "#e5e7eb";
 
-  const handleDigit = (d) => {
-    if (entered.length >= 4) return;
+  const handleDigit = (d) => {    if (entered.length >= 4) return;
     const next = entered + d;
     setEntered(next);
     setError("");
@@ -49,6 +48,16 @@ export default function PINLock({ T, onSuccess, onCancel, checkPIN }) {
     setEntered((e) => e.slice(0, -1));
     setError("");
   };
+
+  // Physical keyboard support
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key >= "0" && e.key <= "9") handleDigit(e.key);
+      else if (e.key === "Backspace") handleBack();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
 
   const keys = ["1","2","3","4","5","6","7","8","9","","0","⌫"];
 
@@ -134,15 +143,16 @@ export default function PINLock({ T, onSuccess, onCancel, checkPIN }) {
                 key={i}
                 onClick={() => k === "⌫" ? handleBack() : handleDigit(k)}
                 style={{
-                  padding: "16px 0",
-                  fontSize: k === "⌫" ? 20 : 22,
+                  padding: "20px 0",
+                  fontSize: k === "⌫" ? 22 : 26,
                   fontWeight: 800,
                   background: k === "⌫" ? "transparent" : surfaceAlt,
                   color: text,
                   border: `1px solid ${border}`,
-                  borderRadius: 14,
+                  borderRadius: 16,
                   cursor: "pointer",
                   fontFamily: "inherit",
+                  minHeight: 68,
                   transition: "transform 0.08s",
                   WebkitTapHighlightColor: "transparent",
                 }}

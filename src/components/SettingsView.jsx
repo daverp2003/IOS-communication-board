@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-export default function SettingsView({ tileSize, setTileSize, theme, setTheme, T, pin, sync, boards, settings, speech, onPullSuccess, lastLocalUpdate, conflictPending, setConflictPending, isOnline }) {
+export default function SettingsView({ tileSize, setTileSize, theme, setTheme, T, pin, sync, boards, settings, speech, onPullSuccess, lastLocalUpdate, conflictPending, setConflictPending, isOnline, scanEnabled, setScanEnabled, scanInterval, setScanInterval }) {
   const [tab, setTab] = useState("display");
 
   const tabStyle = (id) => ({
@@ -22,6 +22,7 @@ export default function SettingsView({ tileSize, setTileSize, theme, setTheme, T
         <button style={tabStyle("theme")}   onClick={() => setTab("theme")}>🎨 Theme</button>
         <button style={tabStyle("pin")}     onClick={() => setTab("pin")}>🔒 PIN Lock</button>
         <button style={tabStyle("sync")}    onClick={() => setTab("sync")}>☁️ Sync</button>
+        <button style={tabStyle("access")}  onClick={() => setTab("access")}>♿ Access</button>
       </div>
 
       {tab === "display" && (
@@ -61,8 +62,9 @@ export default function SettingsView({ tileSize, setTileSize, theme, setTheme, T
         </div>
       )}
 
-      {tab === "pin"  && <PINSettings T={T} pin={pin} />}
-      {tab === "sync" && <SyncSettings T={T} sync={sync} boards={boards} settings={{ tileSize, theme }} onPullSuccess={onPullSuccess} lastLocalUpdate={lastLocalUpdate} conflictPending={conflictPending} setConflictPending={setConflictPending} isOnline={isOnline} />}
+      {tab === "pin"    && <PINSettings T={T} pin={pin} />}
+      {tab === "sync"   && <SyncSettings T={T} sync={sync} boards={boards} settings={{ tileSize, theme }} onPullSuccess={onPullSuccess} lastLocalUpdate={lastLocalUpdate} conflictPending={conflictPending} setConflictPending={setConflictPending} isOnline={isOnline} />}
+      {tab === "access" && <AccessSettings T={T} scanEnabled={scanEnabled} setScanEnabled={setScanEnabled} scanInterval={scanInterval} setScanInterval={setScanInterval} />}
     </div>
   );
 }
@@ -432,6 +434,82 @@ function PINSettings({ T, pin }) {
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+
+// ─────────────────────────────────────────────────────────────
+//  AccessSettings — switch scanning + keyboard nav info
+// ─────────────────────────────────────────────────────────────
+function AccessSettings({ T, scanEnabled, setScanEnabled, scanInterval, setScanInterval }) {
+  const label    = { fontSize: 11, fontWeight: 700, color: T.subtext, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8, display: "block" };
+  const infoBox  = (text) => (
+    <div style={{ fontSize: 13, color: T.subtext, lineHeight: 1.55, marginBottom: 16, background: `${T.border}44`, borderRadius: 10, padding: "10px 12px" }}>
+      {text}
+    </div>
+  );
+
+  return (
+    <div>
+      <span style={label}>♿ Accessibility</span>
+
+      {/* Switch scanning */}
+      <div style={{ marginBottom: 24 }}>
+        <span style={label}>Switch Scanning</span>
+        {infoBox("Automatically highlights tiles one by one. Press Space, Enter, or your connected switch to select the highlighted tile.")}
+
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+          <span style={{ fontSize: 14, fontWeight: 700, color: T.text }}>Enable switch scanning</span>
+          <button
+            onClick={() => setScanEnabled((v) => !v)}
+            style={{
+              width: 52, height: 28, borderRadius: 14, border: "none",
+              background: scanEnabled ? "#6366F1" : T.border,
+              cursor: "pointer", position: "relative", transition: "background 0.2s",
+              flexShrink: 0,
+            }}
+          >
+            <div style={{
+              position: "absolute", top: 3,
+              left: scanEnabled ? 26 : 3,
+              width: 22, height: 22, borderRadius: "50%",
+              background: "#fff",
+              transition: "left 0.2s",
+              boxShadow: "0 1px 4px rgba(0,0,0,0.2)",
+            }} />
+          </button>
+        </div>
+
+        {scanEnabled && (
+          <div>
+            <span style={label}>Scan speed: {(scanInterval / 1000).toFixed(1)}s per tile</span>
+            <input
+              type="range" min={500} max={5000} step={250}
+              value={scanInterval}
+              onChange={(e) => setScanInterval(Number(e.target.value))}
+              style={{ width: "100%", accentColor: "#6366F1", cursor: "pointer" }}
+            />
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: T.subtext, marginTop: 4 }}>
+              <span>Fast (0.5s)</span><span>Slow (5s)</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Keyboard navigation info */}
+      <div style={{ paddingTop: 16, borderTop: `1px solid ${T.border}` }}>
+        <span style={label}>Keyboard Navigation</span>
+        {infoBox("On the symbol board: use Arrow keys to move between tiles, Enter or Space to select. PIN screen supports number keys and Backspace.")}
+        <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "6px 14px", fontSize: 13 }}>
+          {[["↑↓←→", "Move between tiles"], ["Enter / Space", "Select tile or activate scan switch"], ["Ctrl+Z", "Undo last change in builder"], ["Ctrl+Y", "Redo in builder"]].map(([k, v]) => (
+            <>
+              <span key={k} style={{ fontFamily: "monospace", background: T.bg, border: `1px solid ${T.border}`, borderRadius: 6, padding: "2px 6px", fontWeight: 700, color: T.text, whiteSpace: "nowrap", alignSelf: "start" }}>{k}</span>
+              <span key={v} style={{ color: T.subtext, alignSelf: "center" }}>{v}</span>
+            </>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
