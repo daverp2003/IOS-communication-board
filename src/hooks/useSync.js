@@ -1,20 +1,19 @@
 import { useState, useCallback } from "react";
 
 const SUPABASE_URL = "https://fgrfvoazrkutlmiqnmov.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZncmZ2b2F6cmt1dGxtaXFubW92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4ODkwNjgsImV4cCI6MjA4ODQ2NTA2OH0.lofg1sMtoeY-XIbtkUVb4pMcbUXmD8lnL-N3uYfwTT0";
-const SUPABASE_PUB_KEY = "sb_publishable_G0hnuM7wlY-g8puvx2oJ0w_jBRCh-XC";
+const SUPABASE_KEY = "sb_publishable_G0hnuM7wlY-g8puvx2oJ0w_jBRCh-XC";
 
 const SYNC_CODE_KEY = (profileId) => `symbosay_sync_code_${profileId}`;
 
-// ── Low-level fetch helpers ───────────────────────────────────
+// ── Low-level fetch helper ────────────────────────────────────
 async function sbFetch(path, options = {}) {
-  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+  const url = `${SUPABASE_URL}/rest/v1/${path}`;
+  const res = await fetch(url, {
     headers: {
-      "apikey":        SUPABASE_ANON_KEY,
-      "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
       "Content-Type":  "application/json",
       "Prefer":        "return=minimal",
-      "sb-publishable-key": SUPABASE_PUB_KEY,
+      "Authorization": `Bearer ${SUPABASE_KEY}`,
+      "apikey":        SUPABASE_KEY,
       ...options.headers,
     },
     ...options,
@@ -32,7 +31,6 @@ function generateSyncCode() {
   return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
 }
 
-// ── Push boards to Supabase ───────────────────────────────────
 async function pushBoards(syncCode, profileName, boards) {
   await sbFetch(`sync_boards?sync_code=eq.${syncCode}`, { method: "DELETE" });
   if (!boards.length) return;
@@ -50,7 +48,6 @@ async function pushBoards(syncCode, profileName, boards) {
   });
 }
 
-// ── Push settings to Supabase ─────────────────────────────────
 async function pushSettings(syncCode, profileName, settings) {
   await sbFetch("sync_settings", {
     method:  "POST",
@@ -64,19 +61,16 @@ async function pushSettings(syncCode, profileName, settings) {
   });
 }
 
-// ── Pull boards from Supabase ─────────────────────────────────
 async function pullBoards(syncCode) {
   const rows = await sbFetch(`sync_boards?sync_code=eq.${syncCode}&select=data`);
   return (rows || []).map((r) => r.data);
 }
 
-// ── Pull settings from Supabase ───────────────────────────────
 async function pullSettings(syncCode) {
   const rows = await sbFetch(`sync_settings?sync_code=eq.${syncCode}&select=data`);
   return rows?.[0]?.data ?? null;
 }
 
-// ── Hook ──────────────────────────────────────────────────────
 export function useSync(profileId, profileName) {
   const [syncing,   setSyncing]   = useState(false);
   const [lastSync,  setLastSync]  = useState(null);
