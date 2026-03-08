@@ -13,6 +13,15 @@ export const CATEGORIES = [
   { id: "places",    label: "Places",       emoji: "🏠", color: "#34D399" },
   { id: "people",    label: "People",       emoji: "👩", color: "#F472B6" },
   { id: "needs",     label: "Needs",        emoji: "❗", color: "#C4B5FD" },
+  { id: "actions",   label: "Actions",      emoji: "🏃", color: "#FB923C" },
+  { id: "questions", label: "Questions",    emoji: "❓", color: "#38BDF8" },
+  { id: "colours",   label: "Colours",      emoji: "🌈", color: "#A855F7" },
+  { id: "time",      label: "Numbers & Time", emoji: "🕐", color: "#818CF8" },
+  { id: "animals",   label: "Animals",      emoji: "🐾", color: "#A3E635" },
+  { id: "clothing",  label: "Clothing",     emoji: "👕", color: "#FB7185" },
+  { id: "body",      label: "Body Parts",   emoji: "🖐️", color: "#F0ABFC" },
+  { id: "weather",   label: "Weather",      emoji: "☀️", color: "#FDE047" },
+  { id: "transport", label: "Transport",    emoji: "🚗", color: "#4ADE80" },
 ];
 
 export const VOICES = [
